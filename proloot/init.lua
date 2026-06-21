@@ -28,10 +28,11 @@ local Panel           = require('proloot.ui.panel')
 
 -- Framework adapter map
 local FRAMEWORK_ADAPTERS = {
-    none       = require('proloot.adapters.framework.none'),
-    rgmercs    = require('proloot.adapters.framework.rgmercs'),
-    e3         = require('proloot.adapters.framework.e3'),
-    kissassist = require('proloot.adapters.framework.kissassist'),
+    none                = require('proloot.adapters.framework.none'),
+    rgmercs             = require('proloot.adapters.framework.rgmercs'),
+    ['rgmercs-directed'] = require('proloot.adapters.framework.rgmercs_directed'),
+    e3                  = require('proloot.adapters.framework.e3'),
+    kissassist          = require('proloot.adapters.framework.kissassist'),
 }
 
 -- Channel adapter map
