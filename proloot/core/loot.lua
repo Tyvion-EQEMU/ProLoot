@@ -326,15 +326,17 @@ function Loot.LootNearby()
 
     Logger.Debug('sweep started - %d corpse(s) in range', #corpses)
     _looting = true
-    if _framework and _framework.BeginLoot then _framework:BeginLoot() end
+    local lootStarted = _framework and _framework.BeginLoot ~= nil
+    if lootStarted then _framework:BeginLoot() end
     for _, c in ipairs(corpses) do
-        if not _config:Get('LootEnabled') then break end
-        if not Corpse.SafeToLoot() then break end
+        -- refresh combat state inline — CombatTick() doesn't run while we're blocking here
+        _inCombat = mq.TLO.Me.Combat() or hasLiveXTargets()
+        if not _config:Get('LootEnabled') or _inCombat or not Corpse.SafeToLoot() then break end
         if _framework and _framework.RefreshLoot then _framework:RefreshLoot() end
         Loot.LootCorpse(c.id, useWarp)
         mq.delay(250)
     end
-    if _framework and _framework.EndLoot then _framework:EndLoot() end
+    if lootStarted then _framework:EndLoot() end
     _looting = false
 
     -- Announce done only when the sweep leaves no corpses remaining

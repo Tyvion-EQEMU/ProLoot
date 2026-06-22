@@ -352,13 +352,7 @@ while true do
     -- Periodic auto-loot
     local now = mq.gettime()
     if Config:Get('LootEnabled') and (now - lastLootTime) >= LOOT_INTERVAL then
-        -- Pause framework while looting, resume after
-        local needPause = frameworkName ~= 'none'
-        if needPause then framework:PauseAndTrack() end
-
         Loot.LootNearby()
-
-        if needPause then framework:ResumeAndTrack() end
         lastLootTime = now
     end
 
