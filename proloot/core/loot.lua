@@ -188,6 +188,20 @@ local function lootSlot(slotIndex)
         return
     end
 
+    -- Guard: if the item is LORE and we already have one, skip before attempting loot.
+    -- Without this, EQ rejects the pickup server-side after the announce already fired.
+    if item.LORE and item.LORE() then
+        local existing = mq.TLO.FindItem('=' .. name)
+        if existing and existing.ID() and existing.ID() > 0 then
+            pushHistory({ date=os.date('%m/%d'), time=os.date('%H:%M:%S'), name=name, id=id,
+                          decision='skip', reason='lore-have', toon=myToon })
+            _channel:Broadcast({ type='loot_event', name=name, id=id, decision='skip',
+                                  reason='lore-have', date=os.date('%m/%d'),
+                                  time=os.date('%H:%M:%S'), toon=myToon })
+            return
+        end
+    end
+
     -- Pick up the item
     mq.cmdf('/itemnotify loot%d leftmouseup', slotIndex)
     mq.delay(150)
@@ -285,17 +299,6 @@ function Loot.LootCorpse(corpseId, useWarp)
     return true
 end
 
-local function hasLiveXTargets()
-    local xtCount = mq.TLO.Me.XTarget() or 0
-    for i = 1, xtCount do
-        local xt = mq.TLO.Me.XTarget(i)
-        if xt and xt.ID() and xt.ID() > 0 and (xt.PctHPs() or 0) > 0 then
-            return true
-        end
-    end
-    return false
-end
-
 function Loot.SetEnabled(value)
     _config:SetAndSave('LootEnabled', value)
 end
@@ -307,7 +310,7 @@ end
 -- Call once per main-loop tick to track combat state without touching LootEnabled.
 function Loot.CombatTick()
     local wasInCombat = _inCombat
-    _inCombat = mq.TLO.Me.Combat() or hasLiveXTargets()
+    _inCombat = mq.TLO.Me.CombatState() == 'COMBAT'
     if _inCombat and not wasInCombat then
         Logger.Debug('Combat Entered - Looting Suspended')
     elseif not _inCombat and wasInCombat then
@@ -330,7 +333,7 @@ function Loot.LootNearby()
     if lootStarted then _framework:BeginLoot() end
     for _, c in ipairs(corpses) do
         -- refresh combat state inline — CombatTick() doesn't run while we're blocking here
-        _inCombat = mq.TLO.Me.Combat() or hasLiveXTargets()
+        _inCombat = mq.TLO.Me.CombatState() == 'COMBAT'
         if not _config:Get('LootEnabled') or _inCombat or not Corpse.SafeToLoot() then break end
         if _framework and _framework.RefreshLoot then _framework:RefreshLoot() end
         Loot.LootCorpse(c.id, useWarp)
@@ -873,6 +876,70 @@ end
 function Loot.ConsumePendingRestockAll()
     if _pendingRestockAll then _pendingRestockAll = false; return true end
     return false
+end
+
+local function findBagItem(itemName)
+    local item = mq.TLO.FindItem('=' .. itemName)
+    if not item or not item.ID() or item.ID() == 0 then
+        Logger.Warn('UpgradeEval: %s not found in inventory', itemName)
+        printf('\ayProLoot: could not find %s in inventory', itemName)
+        return nil, nil, nil
+    end
+    local parentSlot = item.ItemSlot()
+    local childSlot  = item.ItemSlot2()
+    -- Bag slots: pack1=23 through pack10=32; ItemSlot2 is 0-based within the bag
+    if parentSlot < 23 or parentSlot > 32 then
+        Logger.Warn('UpgradeEval: %s is not in a bag (slot %d)', itemName, parentSlot)
+        printf('\ayProLoot: %s is not in a bag', itemName)
+        return nil, nil, nil
+    end
+    local packNum = parentSlot - 22
+    Logger.Debug('UpgradeEval: found %s at pack%d slot %d', itemName, packNum, childSlot + 1)
+    return item, packNum, childSlot + 1
+end
+
+function Loot.EquipFromBag(itemName, equipSlot)
+    Logger.Info('UpgradeEval: equipping %s to slot %s', itemName, Upgrade.SLOT_NAMES[equipSlot] or tostring(equipSlot))
+    local item, packNum, slotNum = findBagItem(itemName)
+    if not item then return end
+
+    mq.cmdf('/itemnotify in pack%d %d leftmouseup', packNum, slotNum)
+    mq.delay(200)
+    if not mq.TLO.Cursor.ID() or mq.TLO.Cursor.ID() == 0 then
+        Logger.Error('UpgradeEval: failed to pick up %s from pack%d slot %d', itemName, packNum, slotNum)
+        printf('\ayProLoot: failed to pick up %s', itemName)
+        return
+    end
+    mq.cmdf('/itemnotify %d leftmouseup', equipSlot)
+    mq.delay(500)
+    if mq.TLO.Window('ConfirmationDialogBox').Open() then
+        mq.cmdf('/notify ConfirmationDialogBox CD_Yes_Button leftmouseup')
+        mq.delay(200)
+    end
+    if mq.TLO.Cursor.ID() and mq.TLO.Cursor.ID() > 0 then
+        mq.cmd('/autoinventory')
+        mq.delay(200)
+    end
+    Logger.Info('UpgradeEval: equipped %s', itemName)
+    printf('\agProLoot: equipped %s', itemName)
+end
+
+function Loot.DestroyFromBag(itemName)
+    Logger.Info('UpgradeEval: destroying %s', itemName)
+    local item, packNum, slotNum = findBagItem(itemName)
+    if not item then return end
+
+    mq.cmdf('/itemnotify in pack%d %d leftmouseup', packNum, slotNum)
+    mq.delay(200)
+    if not mq.TLO.Cursor.ID() or mq.TLO.Cursor.ID() == 0 then
+        Logger.Error('UpgradeEval: failed to pick up %s from pack%d slot %d', itemName, packNum, slotNum)
+        printf('\ayProLoot: failed to pick up %s', itemName)
+        return
+    end
+    mq.cmd('/destroy')
+    mq.delay(200)
+    Logger.Info('UpgradeEval: destroyed %s', itemName)
+    printf('\agProLoot: destroyed %s', itemName)
 end
 
 function Loot.Init(cfg, lists, framework, channel, restock)
