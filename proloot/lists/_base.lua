@@ -1,6 +1,7 @@
 ﻿-- Shared list factory: persistent name/id sets backed by a flat text file, one entry per line
 
-local mq = require('mq')
+local mq     = require('mq')
+local Logger = require('proloot.utils.logger')
 
 local Base = {}
 Base.__index = Base
@@ -64,6 +65,18 @@ function Base:Load()
             end
         end
         f:close()
+        -- Merge any seeds not already present (picks up new defaults after updates)
+        local merged = 0
+        for _, entry in ipairs(self._seeds) do
+            if self:_add(entry.name, entry.id or 0, false) then
+                Logger.Info('Lists: merged new seed "%s" into %s list', entry.name, self._name)
+                merged = merged + 1
+            end
+        end
+        if merged > 0 then
+            Logger.Info('Lists: saved %d new seed(s) to %s list', merged, self._name)
+            self:Save()
+        end
     else
         -- First run: seed defaults
         for _, entry in ipairs(self._seeds) do
