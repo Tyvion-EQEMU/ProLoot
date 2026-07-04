@@ -14,4 +14,5 @@ return Base.new('event', {
     { name='Wizard pointy skull Ornament' },
     { name='Jack-o-lantern Ornament' },
     { name='Skeleton Head Ornament' },
+    { name='Gnomish Fireworks Crate' },
 })
