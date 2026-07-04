@@ -79,6 +79,7 @@ function Setup.Render()
     local open, shouldDraw = ImGui.Begin('ProLoot — First Time Setup', _open,
         ImGuiWindowFlags.NoResize)
     _open = open
+    if ImGui.IsWindowFocused() and ImGui.IsKeyPressed(ImGuiKey.Escape) then _open = false end
 
     if shouldDraw then
         ImGui.TextWrapped('Welcome to ProLoot! Choose your combat framework, weapon mode, and communication channel.')
