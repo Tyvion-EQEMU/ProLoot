@@ -1,0 +1,7 @@
+# Local-only dev tools — never push these
+deploy.ps1
+LOCAL_DEV_NOTES.md
+
+# OS junk
+Thumbs.db
+.DS_Store
