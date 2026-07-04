@@ -226,6 +226,7 @@ local function renderHistory()
     local open, shouldDraw = ImGui.Begin('ProLoot — Loot History', _histOpen,
         ImGuiWindowFlags.None)
     _histOpen = open
+    if ImGui.IsWindowFocused() and ImGui.IsKeyPressed(ImGuiKey.Escape) then _histOpen = false end
 
     if shouldDraw then
         ImGui.SetNextItemWidth(220)
@@ -383,6 +384,7 @@ local function renderDevInfo()
     ImGui.SetNextWindowSize(ImVec2(430, 360), ImGuiCond.FirstUseEver)
     local open, shouldDraw = ImGui.Begin('ProLoot Dev Info', _devInfoOpen, ImGuiWindowFlags.None)
     _devInfoOpen = open
+    if ImGui.IsWindowFocused() and ImGui.IsKeyPressed(ImGuiKey.Escape) then _devInfoOpen = false end
 
     if shouldDraw then
         ImGui.TextColored(BUTTON_GOLD, "What's New")

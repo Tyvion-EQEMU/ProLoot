@@ -166,13 +166,15 @@ mq.bind('/proloot', function(subcmd, ...)
         end
     elseif subcmd == 'show' then
         Panel.Show()
+    elseif subcmd == 'eval' then
+        UpgradeEval.Open(Config)
     elseif subcmd == 'toggledone' then
         local newVal = not Config:Get('AnnounceDone')
         Config:SetAndSave('AnnounceDone', newVal)
         channel:Broadcast({ type='set_announcedone', value=newVal })
         printf('\agProLoot: Done Looting announce %s (all toons)', newVal and 'ON' or 'OFF')
     else
-        printf('\ayProLoot commands: loot | bankstuff | sellstuff | restock | mini [on|off] | show | editor | enable | disable | reload | set <setting> <value> | toggledone')
+        printf('\ayProLoot commands: loot | bankstuff | sellstuff | restock | mini [on|off] | show | editor | eval | enable | disable | reload | set <setting> <value> | toggledone')
     end
 end)
 
@@ -338,6 +340,18 @@ while true do
             if r.need > 0 then items[#items+1] = r end
         end
         if #items > 0 then _pendingRestock = items end
+    end
+
+    -- Upgrade Eval: equip/destroy actions queued from ImGui, executed here so mq.delay is allowed
+    local evalEquip = UpgradeEval.ConsumePendingEquip()
+    if evalEquip then
+        Loot.EquipFromBag(evalEquip.name, evalEquip.equipSlot)
+        UpgradeEval.RequestRefresh()
+    end
+    local evalDestroy = UpgradeEval.ConsumePendingDestroy()
+    if evalDestroy then
+        Loot.DestroyFromBag(evalDestroy.name)
+        UpgradeEval.RequestRefresh()
     end
 
     -- Zone change: clear corpse done-set
