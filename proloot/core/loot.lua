@@ -942,6 +942,82 @@ function Loot.DestroyFromBag(itemName)
     printf('\agProLoot: destroyed %s', itemName)
 end
 
+function Loot.RemoveAugFromBag(itemName, augName, augSlot)
+    Logger.Info('UpgradeEval: removing augment %s from %s (slot %d)', augName, itemName, augSlot)
+
+    local item = mq.TLO.FindItem('=' .. itemName)
+    if not item or not item.ID or not item.ID() or item.ID() == 0 then
+        Logger.Error('UpgradeEval: could not find %s in inventory', itemName)
+        printf('\ayProLoot: could not find %s in inventory', itemName)
+        return
+    end
+
+    -- Open examine window. There can be multiple ItemDisplayWindow instances open
+    -- (IDW, IDW1, IDW2...). Find which one is newly opened by Inspect() so we
+    -- notify the right one.
+    local openBefore = {}
+    for i = 0, 4 do
+        local name = i == 0 and 'ItemDisplayWindow' or ('ItemDisplayWindow' .. i)
+        if mq.TLO.Window(name).Open() then openBefore[name] = true end
+    end
+
+    item.Inspect()
+    mq.delay(500)
+
+    local idwName = 'ItemDisplayWindow'
+    for i = 0, 4 do
+        local name = i == 0 and 'ItemDisplayWindow' or ('ItemDisplayWindow' .. i)
+        if mq.TLO.Window(name).Open() and not openBefore[name] then
+            idwName = name
+            break
+        end
+    end
+    Logger.Info('UpgradeEval: using window %s for aug removal', idwName)
+
+    -- Regular aug slots: IDW_Socket_Slot_N_Item (N = augSlot, 1-6)
+    -- Appearance aug slot (type 21): IDW_Appearance_Socket_Item
+    local regularBtn    = string.format('IDW_Socket_Slot_%d_Item', augSlot)
+    local appearanceBtn = 'IDW_Appearance_Socket_Item'
+
+    for _, btn in ipairs({ regularBtn, appearanceBtn }) do
+        mq.cmdf('/notify %s %s leftmouseup', idwName, btn)
+        mq.delay(300)
+        if mq.TLO.Window('ConfirmationDialogBox').Open() then break end
+    end
+
+    if not mq.TLO.Window('ConfirmationDialogBox').Open() then
+        Logger.Warn('UpgradeEval: no confirmation dialog appeared for %s removal', augName)
+        printf('\ayProLoot: no confirmation dialog appeared for aug removal')
+        return
+    end
+
+    mq.cmdf('/notify ConfirmationDialogBox CD_Yes_Button leftmouseup')
+    mq.delay(500)
+
+    -- Auto-inventory the removed aug if it landed on the cursor
+    if mq.TLO.Cursor() and mq.TLO.Cursor.ID and mq.TLO.Cursor.ID() and mq.TLO.Cursor.ID() > 0 then
+        mq.cmd('/autoinventory')
+        mq.delay(300)
+        Logger.Info('UpgradeEval: auto-inventoried %s from cursor', augName)
+    end
+
+    -- Verify slot is now empty
+    local parent = mq.TLO.FindItem('=' .. itemName)
+    if parent and parent.ID and parent.ID() and parent.ID() > 0 then
+        local slotCheck = parent.AugSlot(augSlot)
+        local stillThere = slotCheck and slotCheck.Item() and slotCheck.Item.ID and slotCheck.Item.ID() > 0
+        if stillThere then
+            Logger.Error('UpgradeEval: failed to remove %s from %s', augName, itemName)
+            printf('\ayProLoot: failed to remove %s from %s', augName, itemName)
+        else
+            Logger.Info('UpgradeEval: removed %s from %s', augName, itemName)
+            printf('\agProLoot: removed %s from %s', augName, itemName)
+        end
+    else
+        Logger.Warn('UpgradeEval: could not verify removal of %s — parent item not found after removal', augName)
+    end
+end
+
 function Loot.Init(cfg, lists, framework, channel, restock)
     _config    = cfg
     _lists     = lists

@@ -91,6 +91,18 @@ local function allowedByMode(item, weaponMode)
     return true  -- ANY
 end
 
+-- Public scoring function: returns a numeric quality score for item in slotId.
+-- Used by the Upgrade Evaluator to rank multiple upgrade candidates in the same slot.
+function Upgrade.ItemScore(item, slotId, rangedMode)
+    if slotId == PRIMARY_SLOT or slotId == SECONDARY_SLOT then
+        return weaponScore(item)
+    elseif slotId == RANGED_SLOT and (rangedMode or 'any') == 'bows' then
+        return weaponScore(item)
+    else
+        return armorScore(item)
+    end
+end
+
 -- Public slot name map (slot ID → display name) used by UI widgets and the Upgrade Evaluator.
 Upgrade.SLOT_NAMES = {
     [1]  = 'Left Ear',   [2]  = 'Head',       [3]  = 'Face',

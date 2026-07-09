@@ -6,7 +6,7 @@ local imgui  = require('ImGui')
 -- Version block — single source of truth
 local Version = {
     _AppName  = 'ProLoot',
-    _version  = '0.9.4-dev',
+    _version  = '0.9.5-dev',
     _author   = 'Tyvion',
     _buildTag = 'Dev',    -- change to Stable / Dev / RC as needed per branch
 }
@@ -351,6 +351,11 @@ while true do
     local evalDestroy = UpgradeEval.ConsumePendingDestroy()
     if evalDestroy then
         Loot.DestroyFromBag(evalDestroy.name)
+        UpgradeEval.RequestRefresh()
+    end
+    local evalRemoveAug = UpgradeEval.ConsumePendingRemoveAug()
+    if evalRemoveAug then
+        Loot.RemoveAugFromBag(evalRemoveAug.itemName, evalRemoveAug.augName, evalRemoveAug.augSlot)
         UpgradeEval.RequestRefresh()
     end
 
