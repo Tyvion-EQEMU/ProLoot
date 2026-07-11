@@ -14,9 +14,10 @@ Run ProLoot in the background while you grind. It scans for corpses every 5 seco
 walks or warps to them, evaluates every item against your keep/sell/destroy lists and
 gear upgrade logic, and handles the loot window — all without you touching a thing.
 
-### [FUTURE] Multi-Toon Boxing with a Bot Framework
-ProLoot will _soon_ integrate with RGMercs, E3, and KissAssist. When a loot sweep starts it pauses
-the framework so automation doesn't interfere with looting, then resumes when done. 
+### Multi-Toon Boxing with a Bot Framework
+ProLoot integrates with RGMercs and will soon with E3. When a loot sweep starts it pauses
+the framework so automation doesn't interfere with looting, then resumes when done — and
+if you'd paused the framework yourself, ProLoot leaves it alone instead of resuming it for you.
 
 ### Global Command & Control
 A single **Shift+Click** on the pause button broadcasts pause or resume to your entire
@@ -58,6 +59,11 @@ upgrade items land in your bags with a reason of `upgrade-bagged` in the loot hi
 you can inspect and equip them manually.
 
 <p align="center"><img width="350" alt="Main_Settings" src="https://github.com/user-attachments/assets/edd8c933-0ddd-4462-b64b-892a84fab505" /></p>
+
+### Upgrade Evaluator
+Run `/proloot eval` any time to scan your bags for upgrades against what's currently equipped —
+no corpse required. See exactly what would change, remove augments from old gear, or equip an
+upgrade on the spot and have its old augments carried over automatically.
 
 ---
 

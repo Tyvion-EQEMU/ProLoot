@@ -14,12 +14,13 @@ or via the `/proloot set` command.
 
 **Setting:** `Framework`  
 **Shared:** Yes  
-**Options:** `None` | `RG Mercs` | `E3` | `Kiss Assist`  
+**Options:** `None` | `RG Mercs` | `E3`  
 **Location:** System Settings (collapsed section in the main panel)
 
 Which bot framework ProLoot works alongside. When a loot sweep starts, ProLoot pauses
 the framework so it doesn't interfere with movement to corpses, then resumes it when
-the sweep is done.
+the sweep is done. With `RG Mercs`, if you'd paused RGMercs yourself before the sweep
+started, ProLoot recognizes that and leaves it paused instead of resuming it for you.
 
 Set to `None` if you are running ProLoot standalone without a bot framework.
 
