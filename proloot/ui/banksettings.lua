@@ -113,6 +113,7 @@ function BankSettings.Render()
     ImGui.SetNextWindowSize(ImVec2(238, 275), ImGuiCond.FirstUseEver)
     local open, shouldDraw = ImGui.Begin('ProLoot \xe2\x80\x94 Bank & Vendor', _open, ImGuiWindowFlags.None)
     _open = open
+    if ImGui.IsWindowFocused() and ImGui.IsKeyPressed(ImGuiKey.Escape) then _open = false end
 
     if shouldDraw then
         ImGui.BeginChild('##vendor_sect', ImVec2(-1, VENDOR_H), ImGuiChildFlags.Border)

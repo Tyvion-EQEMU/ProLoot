@@ -16,6 +16,12 @@
 
 ---
 
+## Landed, Awaiting Verification
+
+- **`rgmercs-directed` framework adapter** — coordinates looting via RGMercs' Actors mailbox instead of a full pause, so combat assistance keeps running during a sweep. Requires a forked RGMercs build (LootModuleType=2, DoLoot enabled, ProLoot replacing LootNScoot). Code is merged but untested — no forked RGMercs available yet to verify against. Not mentioned in the README, release notes, or docs until it's been tested. Stock RGMercs users should stay on the `rgmercs` adapter.
+
+---
+
 ## Documentation — High Priority
 
 - **GitHub Wiki** — README and in-repo docs are in good shape. A GitHub Wiki would go deeper: per-setting explanations, weapon mode and ranged mode guide, how the list editor works, FAQ. Should be written for someone who has never used MQ2 Lua before, not just existing EQ bot users.

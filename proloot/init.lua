@@ -6,7 +6,7 @@ local imgui  = require('ImGui')
 -- Version block — single source of truth
 local Version = {
     _AppName  = 'ProLoot',
-    _version  = '0.9.4',
+    _version  = '0.10.1',
     _author   = 'Tyvion',
     _buildTag = 'Beta',   -- change to Stable / Dev / RC as needed per branch
 }
@@ -28,10 +28,11 @@ local Panel           = require('proloot.ui.panel')
 
 -- Framework adapter map
 local FRAMEWORK_ADAPTERS = {
-    none       = require('proloot.adapters.framework.none'),
-    rgmercs    = require('proloot.adapters.framework.rgmercs'),
-    e3         = require('proloot.adapters.framework.e3'),
-    kissassist = require('proloot.adapters.framework.kissassist'),
+    none                = require('proloot.adapters.framework.none'),
+    rgmercs             = require('proloot.adapters.framework.rgmercs'),
+    ['rgmercs-directed'] = require('proloot.adapters.framework.rgmercs_directed'),
+    e3                  = require('proloot.adapters.framework.e3'),
+    kissassist          = require('proloot.adapters.framework.kissassist'),
 }
 
 -- Channel adapter map
@@ -165,13 +166,15 @@ mq.bind('/proloot', function(subcmd, ...)
         end
     elseif subcmd == 'show' then
         Panel.Show()
+    elseif subcmd == 'eval' then
+        UpgradeEval.Open(Config)
     elseif subcmd == 'toggledone' then
         local newVal = not Config:Get('AnnounceDone')
         Config:SetAndSave('AnnounceDone', newVal)
         channel:Broadcast({ type='set_announcedone', value=newVal })
         printf('\agProLoot: Done Looting announce %s (all toons)', newVal and 'ON' or 'OFF')
     else
-        printf('\ayProLoot commands: loot | bankstuff | sellstuff | restock | mini [on|off] | show | editor | enable | disable | reload | set <setting> <value> | toggledone')
+        printf('\ayProLoot commands: loot | bankstuff | sellstuff | restock | mini [on|off] | show | editor | eval | enable | disable | reload | set <setting> <value> | toggledone')
     end
 end)
 
@@ -339,6 +342,27 @@ while true do
         if #items > 0 then _pendingRestock = items end
     end
 
+    -- Upgrade Eval: equip/destroy actions queued from ImGui, executed here so mq.delay is allowed
+    local evalEquip = UpgradeEval.ConsumePendingEquip()
+    if evalEquip then
+        if evalEquip.augsToCarry and #evalEquip.augsToCarry > 0 then
+            Loot.EquipWithAugCarryover(evalEquip.name, evalEquip.equipSlot, evalEquip.oldItemName, evalEquip.augsToCarry)
+        else
+            Loot.EquipFromBag(evalEquip.name, evalEquip.equipSlot)
+        end
+        UpgradeEval.RequestRefresh()
+    end
+    local evalDestroy = UpgradeEval.ConsumePendingDestroy()
+    if evalDestroy then
+        Loot.DestroyFromBag(evalDestroy.name)
+        UpgradeEval.RequestRefresh()
+    end
+    local evalRemoveAug = UpgradeEval.ConsumePendingRemoveAug()
+    if evalRemoveAug then
+        Loot.RemoveAugFromBag(evalRemoveAug.itemName, evalRemoveAug.augName, evalRemoveAug.augSlot)
+        UpgradeEval.RequestRefresh()
+    end
+
     -- Zone change: clear corpse done-set
     local curZone = mq.TLO.Zone.ID()
     if curZone and curZone ~= lastZone then
@@ -351,13 +375,7 @@ while true do
     -- Periodic auto-loot
     local now = mq.gettime()
     if Config:Get('LootEnabled') and (now - lastLootTime) >= LOOT_INTERVAL then
-        -- Pause framework while looting, resume after
-        local needPause = frameworkName ~= 'none'
-        if needPause then framework:PauseAndTrack() end
-
         Loot.LootNearby()
-
-        if needPause then framework:ResumeAndTrack() end
         lastLootTime = now
     end
 

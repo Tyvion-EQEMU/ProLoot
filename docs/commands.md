@@ -42,6 +42,7 @@ All ProLoot commands start with `/proloot` followed by a subcommand.
 | `/proloot mini on` | Force mini mode on for this character |
 | `/proloot mini off` | Force mini mode off for this character |
 | `/proloot editor` | Open the List Editor window |
+| `/proloot eval` | Open the Upgrade Evaluator window |
 | `/proloot setup` | Re-open the first-run setup dialog |
 
 ---
@@ -84,7 +85,7 @@ Changes a config setting by name. Setting names are case-insensitive.
 
 | Key | Type | Example Values |
 |-----|------|----------------|
-| `Framework` | string | `none`, `rgmercs`, `e3`, `kissassist` |
+| `Framework` | string | `none`, `rgmercs`, `e3` |
 | `Channel` | string | `none`, `dannet`, `eqbc` |
 | `WeaponMode` | string | `DW`, `2H`, `SNB`, `ANY`, `always` |
 | `RangedMode` | string | `any`, `bows` |

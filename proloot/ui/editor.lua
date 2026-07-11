@@ -161,6 +161,7 @@ function Editor.Render()
     local open, shouldDraw = ImGui.Begin('ProLoot — List Editor', _open,
         ImGuiWindowFlags.None)
     _open = open
+    if ImGui.IsWindowFocused() and ImGui.IsKeyPressed(ImGuiKey.Escape) then _open = false end
 
     if shouldDraw then
         if ImGui.BeginTabBar('##tabs') then

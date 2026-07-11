@@ -325,6 +325,7 @@ function SellConfirm.Render()
     ImGui.SetNextWindowSize(ImVec2(480, 320), ImGuiCond.FirstUseEver)
     local open, shouldDraw = ImGui.Begin('ProLoot \xe2\x80\x94 Sell Stuff', _open, ImGuiWindowFlags.None)
     _open = open
+    if ImGui.IsWindowFocused() and ImGui.IsKeyPressed(ImGuiKey.Escape) then _open = false end
     if not shouldDraw then ImGui.End(); return end
 
     if _groupView then renderGroupHeader() else renderSoloHeader() end
