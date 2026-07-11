@@ -949,7 +949,7 @@ function Loot.RemoveAugFromBag(itemName, augName, augSlot)
     if not item or not item.ID or not item.ID() or item.ID() == 0 then
         Logger.Error('UpgradeEval: could not find %s in inventory', itemName)
         printf('\ayProLoot: could not find %s in inventory', itemName)
-        return
+        return false
     end
 
     -- Open examine window. There can be multiple ItemDisplayWindow instances open
@@ -988,7 +988,7 @@ function Loot.RemoveAugFromBag(itemName, augName, augSlot)
     if not mq.TLO.Window('ConfirmationDialogBox').Open() then
         Logger.Warn('UpgradeEval: no confirmation dialog appeared for %s removal', augName)
         printf('\ayProLoot: no confirmation dialog appeared for aug removal')
-        return
+        return false
     end
 
     mq.cmdf('/notify ConfirmationDialogBox CD_Yes_Button leftmouseup')
@@ -1009,13 +1009,146 @@ function Loot.RemoveAugFromBag(itemName, augName, augSlot)
         if stillThere then
             Logger.Error('UpgradeEval: failed to remove %s from %s', augName, itemName)
             printf('\ayProLoot: failed to remove %s from %s', augName, itemName)
+            return false
         else
             Logger.Info('UpgradeEval: removed %s from %s', augName, itemName)
             printf('\agProLoot: removed %s from %s', augName, itemName)
+            return true
         end
     else
         Logger.Warn('UpgradeEval: could not verify removal of %s — parent item not found after removal', augName)
+        return false
     end
+end
+
+-- Tries each empty aug socket on the item now equipped in equipSlot, in order,
+-- until one accepts augName. Aug slot "types" aren't modeled here (this server
+-- allows custom/cross-type augs), so trial-and-verify stands in for a compatibility table.
+function Loot.InsertAugToEquipped(augName, equipSlot)
+    Logger.Info('UpgradeEval: inserting augment %s into %s', augName, Upgrade.SLOT_NAMES[equipSlot] or tostring(equipSlot))
+
+    local aug, packNum, slotNum = findBagItem(augName)
+    if not aug then return false end
+
+    local target = mq.TLO.Me.Inventory(equipSlot)
+    if not target or not target.ID or not target.ID() or target.ID() == 0 then
+        Logger.Error('UpgradeEval: no item equipped in slot %s to insert %s into', Upgrade.SLOT_NAMES[equipSlot] or tostring(equipSlot), augName)
+        printf('\ayProLoot: no item equipped to insert %s into', augName)
+        return false
+    end
+
+    mq.cmdf('/itemnotify in pack%d %d leftmouseup', packNum, slotNum)
+    mq.delay(200)
+    if not mq.TLO.Cursor.ID() or mq.TLO.Cursor.ID() == 0 then
+        Logger.Error('UpgradeEval: failed to pick up %s for insertion', augName)
+        printf('\ayProLoot: failed to pick up %s', augName)
+        return false
+    end
+
+    -- Open examine window for the equipped item. There can be multiple
+    -- ItemDisplayWindow instances open (IDW, IDW1, IDW2...); find the one
+    -- newly opened by Inspect() so we notify the right one.
+    local openBefore = {}
+    for i = 0, 4 do
+        local name = i == 0 and 'ItemDisplayWindow' or ('ItemDisplayWindow' .. i)
+        if mq.TLO.Window(name).Open() then openBefore[name] = true end
+    end
+
+    target.Inspect()
+    mq.delay(500)
+
+    local idwName = 'ItemDisplayWindow'
+    for i = 0, 4 do
+        local name = i == 0 and 'ItemDisplayWindow' or ('ItemDisplayWindow' .. i)
+        if mq.TLO.Window(name).Open() and not openBefore[name] then
+            idwName = name
+            break
+        end
+    end
+    Logger.Info('UpgradeEval: using window %s for aug insertion', idwName)
+
+    -- Try every empty socket on the target item in order (regular slot button,
+    -- then the appearance-slot button as a fallback for the same index) until
+    -- one accepts the aug.
+    local inserted = false
+    for candidateSlot = 1, 6 do
+        local sock = target.AugSlot(candidateSlot)
+        local occupied = sock and sock.Item() and sock.Item.ID and sock.Item.ID() and sock.Item.ID() > 0
+        if not occupied then
+            local regularBtn    = string.format('IDW_Socket_Slot_%d_Item', candidateSlot)
+            local appearanceBtn = 'IDW_Appearance_Socket_Item'
+
+            for _, btn in ipairs({ regularBtn, appearanceBtn }) do
+                if mq.TLO.Cursor.ID() and mq.TLO.Cursor.ID() > 0 then
+                    mq.cmdf('/notify %s %s leftmouseup', idwName, btn)
+                    mq.delay(300)
+                    if mq.TLO.Window('ConfirmationDialogBox').Open() then
+                        mq.cmdf('/notify ConfirmationDialogBox CD_Yes_Button leftmouseup')
+                        mq.delay(400)
+                        local recheck = mq.TLO.Me.Inventory(equipSlot)
+                        local sockCheck = recheck and recheck.AugSlot(candidateSlot)
+                        if sockCheck and sockCheck.Item() and sockCheck.Item.ID and sockCheck.Item.ID() and sockCheck.Item.ID() > 0 then
+                            inserted = true
+                            Logger.Info('UpgradeEval: inserted %s into slot %d', augName, candidateSlot)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+        if inserted then break end
+    end
+
+    if inserted then
+        printf('\agProLoot: inserted %s', augName)
+    else
+        printf('\ayProLoot: could not find a compatible socket for %s — left in inventory', augName)
+        Logger.Warn('UpgradeEval: no compatible socket found for %s on target item', augName)
+        -- Drop the aug back off the cursor if a failed attempt left it there
+        if mq.TLO.Cursor.ID() and mq.TLO.Cursor.ID() > 0 then
+            mq.cmd('/autoinventory')
+            mq.delay(300)
+        end
+    end
+
+    return inserted
+end
+
+-- Orchestrates: remove every aug from the currently-equipped item (oldItemName),
+-- equip itemName from the bag into equipSlot, then re-insert the removed augs
+-- into the newly-equipped item. Falls back to a plain equip if the equipped
+-- item changed since the eval scan (safety check against stale UI state).
+function Loot.EquipWithAugCarryover(itemName, equipSlot, oldItemName, augs)
+    local equipped     = mq.TLO.Me.Inventory(equipSlot)
+    local equippedName = equipped and equipped.Name and equipped.Name()
+    if not equipped or not equipped.ID or not equipped.ID() or equipped.ID() == 0 or equippedName ~= oldItemName then
+        Logger.Warn('UpgradeEval: equipped item in slot %s changed since scan (expected %s, found %s) — skipping aug carryover',
+            Upgrade.SLOT_NAMES[equipSlot] or tostring(equipSlot), oldItemName, tostring(equippedName))
+        printf('\ayProLoot: equipped item changed, skipping aug carryover — equipping %s normally', itemName)
+        Loot.EquipFromBag(itemName, equipSlot)
+        return
+    end
+
+    Logger.Info('UpgradeEval: carrying %d aug(s) from %s to %s', #augs, oldItemName, itemName)
+
+    local carried = {}
+    for _, aug in ipairs(augs) do
+        if Loot.RemoveAugFromBag(oldItemName, aug.name, aug.slot) then
+            carried[#carried+1] = aug.name
+        end
+    end
+
+    Loot.EquipFromBag(itemName, equipSlot)
+
+    for _, augName in ipairs(carried) do
+        Loot.InsertAugToEquipped(augName, equipSlot)
+    end
+
+    -- Remove/insert each pop open an ItemDisplayWindow; close them all now that we're done.
+    -- /cleanup caps how many it closes per call, so run it twice to catch the rest.
+    mq.cmd('/cleanup')
+    mq.delay(300)
+    mq.cmd('/cleanup')
 end
 
 function Loot.Init(cfg, lists, framework, channel, restock)

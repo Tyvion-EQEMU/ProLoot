@@ -345,7 +345,11 @@ while true do
     -- Upgrade Eval: equip/destroy actions queued from ImGui, executed here so mq.delay is allowed
     local evalEquip = UpgradeEval.ConsumePendingEquip()
     if evalEquip then
-        Loot.EquipFromBag(evalEquip.name, evalEquip.equipSlot)
+        if evalEquip.augsToCarry and #evalEquip.augsToCarry > 0 then
+            Loot.EquipWithAugCarryover(evalEquip.name, evalEquip.equipSlot, evalEquip.oldItemName, evalEquip.augsToCarry)
+        else
+            Loot.EquipFromBag(evalEquip.name, evalEquip.equipSlot)
+        end
         UpgradeEval.RequestRefresh()
     end
     local evalDestroy = UpgradeEval.ConsumePendingDestroy()

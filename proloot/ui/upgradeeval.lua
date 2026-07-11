@@ -19,6 +19,7 @@ local _pendingRemoveAug = nil  -- { itemName, augName }
 
 local _sortCol = 0     -- 0=Item, 1=Slot, 2=Equipped, 3=Verdict
 local _sortAsc = true
+local _maxAugs = 0     -- most augs on any single scanned item; drives Actions column width
 
 local COL_PROLOOT_BLUE = ImVec4(0.16, 0.29, 0.48, 1.0)  -- ProLoot Blue: ImGui dark theme TitleBgActive; used for row highlights
 local COL_GOLD         = ImVec4(1.0,  0.72, 0.20, 1.0)  -- ProLoot Gold: matches BUTTON_GOLD in panel.lua
@@ -161,7 +162,7 @@ local function applySort()
             if ae == '' then return not asc end
             if be == '' then return asc end
             if asc then return ae < be else return ae > be end
-        elseif col == 4 then  -- Verdict: Upgrade(2) > Weaker(1) > No Upgrade(0)
+        elseif col == 5 then  -- Verdict: Upgrade(2) > Weaker(1) > No Upgrade(0)
             local function vp(r)
                 if r.isUpgrade and not r.isWeaker then return 2
                 elseif r.isUpgrade                then return 1
@@ -237,10 +238,20 @@ local function scan()
 
                             local slotName     = displaySlot and (Upgrade.SLOT_NAMES[displaySlot] or ('Slot ' .. displaySlot)) or nil
                             local equippedName = nil
+                            local equippedAugs = {}
                             if displaySlot then
                                 local eq = mq.TLO.Me.Inventory(displaySlot)
                                 if eq and eq.ID() and eq.ID() > 0 then
                                     equippedName = eq.Name()
+                                    for aug_i = 1, 6 do
+                                        local ok, eslot = pcall(function() return eq.AugSlot(aug_i) end)
+                                        if ok and eslot and eslot.Item() and eslot.Item.ID and eslot.Item.ID() and eslot.Item.ID() > 0 then
+                                            equippedAugs[#equippedAugs+1] = {
+                                                name = eslot.Item.Name() or '(aug)',
+                                                slot = aug_i,
+                                            }
+                                        end
+                                    end
                                 end
                             end
 
@@ -262,6 +273,7 @@ local function scan()
                                 isUpgrade     = upgradeSlot ~= nil,
                                 slotName      = slotName,
                                 equippedName  = equippedName,
+                                equippedAugs  = equippedAugs,
                                 displaySlotId = displaySlot,
                                 bag           = bag,
                                 slot          = slot,
@@ -276,6 +288,30 @@ local function scan()
 
     applySort()
     rankUpgrades()
+
+    _maxAugs = 0
+    for _, r in ipairs(_results) do
+        if #r.augs > _maxAugs then _maxAugs = #r.augs end
+    end
+end
+
+-- Width needed to show every Actions-column button (Equip/Trash/Ignore plus one
+-- Remove-Aug scissors button per aug slot) without clipping, so the fixed-width
+-- column never has to be scrolled to reveal a button.
+local function actionsColumnWidth()
+    local style   = ImGui.GetStyle()
+    local padX    = style.FramePadding.x
+    local spacing = style.ItemSpacing.x
+
+    local function btnW(label)
+        return (ImGui.CalcTextSize(label)) + padX * 2
+    end
+
+    local w = btnW('Equip') + spacing + btnW(Icons.FA_TRASH_O) + spacing + btnW(Icons.FA_BAN)
+    if _maxAugs > 0 then
+        w = w + _maxAugs * (spacing + btnW(Icons.FA_SCISSORS))
+    end
+    return w + style.CellPadding.x * 2
 end
 
 function UpgradeEval.Open(config)
@@ -339,7 +375,7 @@ function UpgradeEval.Render()
 
     ImGui.Separator()
 
-    if ImGui.BeginTable('##evalresults', 6,
+    if ImGui.BeginTable('##evalresults', 7,
         bit32.bor(ImGuiTableFlags.Borders, ImGuiTableFlags.RowBg,
                   ImGuiTableFlags.ScrollY, ImGuiTableFlags.SizingStretchProp),
         ImVec2(0, -1)) then
@@ -349,17 +385,18 @@ function UpgradeEval.Render()
         ImGui.TableSetupColumn('Slot',               ImGuiTableColumnFlags.WidthFixed,   80)
         ImGui.TableSetupColumn('Augment',            ImGuiTableColumnFlags.WidthStretch)
         ImGui.TableSetupColumn('Currently Equipped', ImGuiTableColumnFlags.WidthStretch)
+        ImGui.TableSetupColumn('Equipped Augs',      ImGuiTableColumnFlags.WidthStretch)
         ImGui.TableSetupColumn('Verdict',            ImGuiTableColumnFlags.WidthFixed,   90)
-        ImGui.TableSetupColumn('Actions',            ImGuiTableColumnFlags.WidthFixed,  120)
+        ImGui.TableSetupColumn('Actions',            ImGuiTableColumnFlags.WidthFixed,  actionsColumnWidth())
 
         -- Manual sortable header row (avoids TableGetSortSpecs binding quirks)
-        -- Col 2 (Augment) and col 5 (Actions) not sortable
-        local HDR = { 'Item', 'Slot', 'Augment', 'Currently Equipped', 'Verdict', 'Actions' }
+        -- Col 2 (Augment), col 4 (Equipped Augs), and col 6 (Actions) not sortable
+        local HDR = { 'Item', 'Slot', 'Augment', 'Currently Equipped', 'Equipped Augs', 'Verdict', 'Actions' }
         ImGui.TableNextRow(ImGuiTableRowFlags.Headers)
         for i, label in ipairs(HDR) do
             local col = i - 1
             ImGui.TableSetColumnIndex(col)
-            local sortable = col ~= 2 and col ~= 5
+            local sortable = col ~= 2 and col ~= 4 and col ~= 6
             local arrow = (sortable and _sortCol == col) and (_sortAsc and (' ' .. Icons.FA_SORT_ASC) or (' ' .. Icons.FA_SORT_DESC)) or ''
             ImGui.TableHeader(label .. arrow)
             if sortable and ImGui.IsItemClicked() then
@@ -466,6 +503,32 @@ function UpgradeEval.Render()
                 ImGui.TextDisabled('\xe2\x80\x94')
             end
 
+            -- Equipped Augs (clickable per aug — opens EQ examine window)
+            ImGui.TableNextColumn()
+            if #r.equippedAugs == 0 then
+                ImGui.TextDisabled('\xe2\x80\x94')
+            else
+                for aug_i, aug in ipairs(r.equippedAugs) do
+                    if aug_i > 1 then ImGui.Spacing() end
+                    ImGui.Text(aug.name)
+                    local eamin = ImGui.GetItemRectMinVec()
+                    local eamax = ImGui.GetItemRectMaxVec()
+                    dl:AddLine(ImVec2(eamin.x, eamax.y), eamax, UNDERLINE_U32, 1.0)
+                    if ImGui.IsItemHovered() then
+                        ImGui.SetMouseCursor(ImGuiMouseCursor.Hand)
+                        if ImGui.IsMouseReleased(ImGuiMouseButton.Left) then
+                            local eq = r.displaySlotId and mq.TLO.Me.Inventory(r.displaySlotId) or nil
+                            if eq and eq.ID and eq.ID() and eq.ID() > 0 then
+                                local eqAugSlot = eq.AugSlot(aug.slot)
+                                if eqAugSlot and eqAugSlot.Item() and eqAugSlot.Item.ID and eqAugSlot.Item.ID() > 0 then
+                                    eqAugSlot.Item.Inspect()
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+
             -- Verdict
             ImGui.TableNextColumn()
             if r.isUpgrade and not r.isWeaker then
@@ -479,13 +542,28 @@ function UpgradeEval.Render()
             -- Actions
             ImGui.TableNextColumn()
             local tag = '##' .. i
+            local distiller = mq.TLO.FindItem('=Perfected Augmentation Distiller')
+            local hasDistiller = distiller and distiller.ID and distiller.ID() and distiller.ID() > 0
+            local willCarryAugs = hasDistiller and #r.equippedAugs > 0
 
             if not r.isUpgrade then ImGui.BeginDisabled() end
             if ImGui.SmallButton('Equip' .. tag) then
-                _pendingEquip = { bag=r.bag, slot=r.slot, equipSlot=r.displaySlotId, name=r.name }
+                _pendingEquip = {
+                    bag = r.bag, slot = r.slot, equipSlot = r.displaySlotId, name = r.name,
+                    oldItemName  = r.equippedName,
+                    augsToCarry  = willCarryAugs and r.equippedAugs or nil,
+                }
             end
             if ImGui.IsItemHovered() and r.isUpgrade then
-                ImGui.SetTooltip('Equip this item now')
+                if willCarryAugs then
+                    local names = {}
+                    for _, aug in ipairs(r.equippedAugs) do names[#names+1] = aug.name end
+                    ImGui.SetTooltip('Equip this item now\nWill carry over: ' .. table.concat(names, ', '))
+                elseif #r.equippedAugs > 0 then
+                    ImGui.SetTooltip('Equip this item now\n' .. r.equippedName .. '\'s augment(s) will NOT be carried over\n(requires Perfected Augmentation Distiller)')
+                else
+                    ImGui.SetTooltip('Equip this item now')
+                end
             end
             if not r.isUpgrade then ImGui.EndDisabled() end
 
@@ -509,8 +587,6 @@ function UpgradeEval.Render()
 
             for _, aug in ipairs(r.augs) do
                 ImGui.SameLine()
-                local distiller = mq.TLO.FindItem('=Perfected Augmentation Distiller')
-                local hasDistiller = distiller and distiller.ID and distiller.ID() and distiller.ID() > 0
                 if not hasDistiller then ImGui.BeginDisabled() end
                 if ImGui.SmallButton(Icons.FA_SCISSORS .. tag .. '_' .. aug.slot) then
                     _pendingRemoveAug = { itemName = r.name, augName = aug.name, augSlot = aug.slot }
