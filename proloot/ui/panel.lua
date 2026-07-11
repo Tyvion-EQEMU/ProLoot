@@ -94,11 +94,17 @@ local BUTTON_GOLD = ImVec4(1.0, 0.72, 0.20, 1.0)
 -- bullet entries starting with "  • ". Prepend a new block for each release
 -- (older blocks stay for history) or trim if it gets too long.
 local BUILD_NOTES = [[
-v0.10.1 Beta  —  2026-07-10
+v0.10.2 Beta  —  2026-07-10
 
   New Features:
   • Upgrade Evaluator — now has its own quick-action button on the main panel
     (previously command-only via /proloot eval)
+
+v0.10.1 Beta  —  2026-07-10
+
+  New Features:
+  • Upgrade Evaluator — scan bags for gear upgrades against what you have
+    equipped, via /proloot eval
   • Automatic aug carryover — Equip now pulls augments off the item being
     replaced and reinserts them into the new upgrade automatically
   • Remove Aug action — pull an augment out of an item before deleting it
