@@ -65,6 +65,11 @@ Run `/proloot eval` any time to scan your bags for upgrades against what's curre
 no corpse required. See exactly what would change, remove augments from old gear, or equip an
 upgrade on the spot and have its old augments carried over automatically.
 
+<p align="center"><img width="997" height="969" alt="image" src="https://github.com/user-attachments/assets/054abb8b-771f-45c5-a816-ee73f7295498" /></p>
+
+<p align="center"><img width="997" height="958" alt="image" src="https://github.com/user-attachments/assets/9ff7d312-d6dc-45bb-95bd-21f00dee91d0" /></p>
+
+
 ---
 
 ## Requirements
