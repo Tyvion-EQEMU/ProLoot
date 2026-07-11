@@ -94,6 +94,25 @@ local BUTTON_GOLD = ImVec4(1.0, 0.72, 0.20, 1.0)
 -- bullet entries starting with "  • ". Prepend a new block for each release
 -- (older blocks stay for history) or trim if it gets too long.
 local BUILD_NOTES = [[
+v0.10.1 Beta  —  2026-07-10
+
+  New Features:
+  • Upgrade Evaluator — now has its own quick-action button on the main panel
+    (previously command-only via /proloot eval)
+  • Automatic aug carryover — Equip now pulls augments off the item being
+    replaced and reinserts them into the new upgrade automatically
+  • Remove Aug action — pull an augment out of an item before deleting it
+    (requires a Perfected Augmentation Distiller)
+
+  Fixes:
+  • RGMercs: ProLoot no longer unpauses RGMercs if you had paused it yourself
+    before a loot sweep started
+  • RGMercs: camp-return no longer interrupts loot sweeps mid-corpse
+  • Lore items you already own are now skipped before announcing to the
+    group, instead of announcing and then failing to pick up
+  • More reliable combat detection during loot sweeps
+  • All sub-windows now close on Escape
+
 v0.9.2 Beta  —  2026-06-12
 
   New Features:
@@ -833,12 +852,6 @@ function Panel.Render()
             end
         end
 
-        -- TODO: Upgrade Eval button hidden pending further UX work
-        -- local evalOpen = _upgradeEval and _upgradeEval.IsOpen()
-        -- if actionButton('Upgrade Eval', 115, evalOpen) then
-        --     if evalOpen then _upgradeEval.Close() else _upgradeEval.Open(_config) end
-        -- end
-
         ImGui.Spacing()
         if ImGui.CollapsingHeader('System Settings') then
             if ImGui.BeginTable('##syssettings', 2, 0) then
@@ -957,14 +970,14 @@ function Panel.Render()
             end
         end
 
-        -- Quick-action buttons: Sell Stuff | Bank Stuff | Restock — equally spread
+        -- Quick-action buttons: Sell Stuff | Bank Stuff | Restock | Upgrade Eval — equally spread
         ImGui.Spacing()
         ImGui.Separator()
         ImGui.Spacing()
 
         local btnSz = 64
         local avail = select(1, ImGui.GetContentRegionAvail())
-        local gap   = math.max(4, (avail - btnSz * 3) / 4)
+        local gap   = math.max(4, (avail - btnSz * 4) / 5)
         local baseX = ImGui.GetCursorPosX()
         local baseY = ImGui.GetCursorPosY()
 
@@ -1069,9 +1082,20 @@ function Panel.Render()
             ImGui.SetWindowFontScale(1.15)
         end
 
+        ImGui.SetCursorPos(ImVec2(baseX + gap * 4 + btnSz * 3, baseY))
+        if squareActionButton('Upgrade\nEval', btnSz) then mq.cmd('/proloot eval') end
+        if ImGui.IsItemHovered() then
+            ImGui.SetWindowFontScale(1.0)
+            ImGui.BeginTooltip()
+            ImGui.Text('Upgrade Eval')
+            ImGui.TextDisabled('Scan bags for gear upgrades against what you have equipped, plus\neasy inventory housekeeping with quick deletes for gear no longer needed')
+            ImGui.EndTooltip()
+            ImGui.SetWindowFontScale(1.15)
+        end
+
         ImGui.SetWindowFontScale(1.0)
 
-        -- Advance cursor below all three buttons so EndChild renders correctly
+        -- Advance cursor below all four buttons so EndChild renders correctly
         ImGui.SetCursorPosY(baseY + btnSz + ImGui.GetStyle().ItemSpacing.y)
         ImGui.Spacing()
 
