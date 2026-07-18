@@ -6,7 +6,7 @@ local imgui  = require('ImGui')
 -- Version block — single source of truth
 local Version = {
     _AppName  = 'ProLoot',
-    _version  = '0.10.2',
+    _version  = '0.10.3',
     _author   = 'Tyvion',
     _buildTag = 'Beta',   -- change to Stable / Dev / RC as needed per branch
 }

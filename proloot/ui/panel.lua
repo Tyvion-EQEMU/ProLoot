@@ -94,6 +94,20 @@ local BUTTON_GOLD = ImVec4(1.0, 0.72, 0.20, 1.0)
 -- bullet entries starting with "  • ". Prepend a new block for each release
 -- (older blocks stay for history) or trim if it gets too long.
 local BUILD_NOTES = [[
+v0.10.3 Beta  —  2026-07-18
+
+  New Features:
+  • Raid Chat toggle — loot pickups, and now Sell/Bank/Restock completion
+    messages, can broadcast to Raid (/rs) instead of Group (/g)
+  • Bank Stuff now announces completion to group/raid, matching Sell/Restock
+  • Shift+Click on "...All" buttons (Status/Sell/Bank/Restock/Consolidate)
+    now reaches every online toon instead of just your group
+
+  Fixes:
+  • "Reload for All" in the List Editor now actually reaches every toon
+    instead of just your in-game group
+  • Shift+Click "Status All" replies now reach out-of-group requesters
+
 v0.10.2 Beta  —  2026-07-10
 
   New Features:
