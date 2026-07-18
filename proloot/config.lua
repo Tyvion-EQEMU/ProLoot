@@ -67,6 +67,7 @@ Config.Defaults = {
     LootPets           = false,
     LootGroup          = false,   -- loot group members' nearby corpses
     AnnounceGroup      = false,   -- broadcast loot events to group channel
+    AnnounceChannel    = 'group', -- group | raid — channel for per-item loot pickup announcements
     AnnounceDone       = true,    -- send /g Done Looting after a sweep clears all corpses
     AutoEquipUpgrades  = true,    -- equip upgrade immediately; false = bag it for manual equip
     ExcludedSlots      = '',      -- comma-sep slot IDs excluded from upgrade eval (per-char)
@@ -101,10 +102,11 @@ local SHARED_KEYS = {
     LootCorpses   = true,
     LootPets      = true,
     LootGroup     = true,
-    AnnounceGroup        = true,
-    AnnounceDone         = true,
-    AutoConsolidateCoins = true,
-    BankAutoDeposit      = false,
+    AnnounceGroup         = true,
+    AnnounceChannel       = true,
+    AnnounceDone          = true,
+    AutoConsolidateCoins  = true,
+    BankAutoDeposit       = false,
 }
 
 -- Live config table — starts as a copy of defaults, then overwritten by INI

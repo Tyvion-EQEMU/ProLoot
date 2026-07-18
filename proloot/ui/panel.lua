@@ -780,6 +780,19 @@ function Panel.Render()
             local announceDone = _config:Get('AnnounceDone')
             local newAnnounceDone, doneChanged = Widgets.Toggle('##announcedone', announceDone)
             if doneChanged then _config:SetAndSave('AnnounceDone', newAnnounceDone) end
+            ImGui.SameLine(0, 14)
+            ImGui.Text('Raid Chat')
+            if ImGui.IsItemHovered() then
+                ImGui.BeginTooltip()
+                ImGui.PushTextWrapPos(280)
+                ImGui.TextWrapped('When on, loot pickup, Sell/Bank/Restock completion, and Restock share announcements broadcast to Raid (/rs) instead of Group (/g). Falls back to local chat if not actually in a raid.')
+                ImGui.PopTextWrapPos()
+                ImGui.EndTooltip()
+            end
+            ImGui.SameLine(0, 6)
+            local announceRaid = _config:Get('AnnounceChannel') == 'raid'
+            local newAnnounceRaid, channelChanged = Widgets.Toggle('##announcechannel', announceRaid)
+            if channelChanged then _config:SetAndSave('AnnounceChannel', newAnnounceRaid and 'raid' or 'group') end
 
             -- Slot Exclusions
             ImGui.TableNextRow()

@@ -12,8 +12,8 @@ local _loot        = nil
 local _iconAnim    = nil
 local _groupView   = false
 local _pendingItems          = nil
-local _pendingSellAll        = false
-local _pendingStatusRequest  = false
+local _pendingSellAll        = nil  -- nil = not pending; 'group' | 'all' once triggered
+local _pendingStatusRequest  = nil  -- nil = not pending; 'group' | 'all' once triggered
 
 local EQ_ICON_OFFSET = 500
 local ICON_SIZE      = 40
@@ -59,13 +59,15 @@ function SellConfirm.ConsumePending()
 end
 
 function SellConfirm.ConsumePendingSellStatusRequest()
-    if _pendingStatusRequest then _pendingStatusRequest = false; return true end
-    return false
+    local scope = _pendingStatusRequest
+    _pendingStatusRequest = nil
+    return scope
 end
 
 function SellConfirm.ConsumePendingSellAll()
-    if _pendingSellAll then _pendingSellAll = false; return true end
-    return false
+    local scope = _pendingSellAll
+    _pendingSellAll = nil
+    return scope
 end
 
 -----------------------------------------------------------------------
@@ -160,6 +162,36 @@ local function renderSoloTable()
     ImGui.EndTable()
 end
 
+local function statusAllAndSellAllButtons(maxX, itemSp, statusW, sellAllW)
+    -- Right: Status All | Sell All
+    ImGui.SameLine()
+    ImGui.SetCursorPosX(maxX - sellAllW - itemSp - statusW)
+    if ImGui.Button('Status All', statusW, 0) then
+        _groupView = true
+        _pendingStatusRequest = ImGui.GetIO().KeyShift and 'all' or 'group'
+        if _loot then _loot.ClearSellStatusResponses() end
+    end
+    if ImGui.IsItemHovered() then
+        ImGui.BeginTooltip()
+        ImGui.Text('Status All')
+        ImGui.TextDisabled('Requests sell-queue status from all group toons running ProLoot.')
+        ImGui.TextDisabled('Shift+Click: request from ALL online toons, not just your group.')
+        ImGui.EndTooltip()
+    end
+    ImGui.SameLine()
+    if ImGui.Button('Sell All', sellAllW, 0) then
+        _pendingSellAll = ImGui.GetIO().KeyShift and 'all' or 'group'
+        _open = false
+    end
+    if ImGui.IsItemHovered() then
+        ImGui.BeginTooltip()
+        ImGui.Text('Sell All')
+        ImGui.TextDisabled('Sends all group toons running ProLoot to sell immediately.')
+        ImGui.TextDisabled('Shift+Click: send to ALL online toons, not just your group.')
+        ImGui.EndTooltip()
+    end
+end
+
 local function renderSoloFooter()
     local maxX   = select(1, ImGui.GetContentRegionMax())
     local itemSp = ImGui.GetStyle().ItemSpacing.x
@@ -176,49 +208,13 @@ local function renderSoloFooter()
         if ImGui.Button('Rescan') then _items = _loot.ScanSellItems() end
         ImGui.SameLine()
         if ImGui.Button('Cancel') then _open = false end
-        -- Right: Status All | Sell All
-        ImGui.SameLine()
-        ImGui.SetCursorPosX(maxX - sellAllW - itemSp - statusW)
-        if ImGui.Button('Status All', statusW, 0) then
-            _groupView = true
-            _pendingStatusRequest = true
-            if _loot then _loot.ClearSellStatusResponses() end
-        end
-        ImGui.SameLine()
-        if ImGui.Button('Sell All', sellAllW, 0) then
-            _pendingSellAll = true
-            _open = false
-        end
-        if ImGui.IsItemHovered() then
-            ImGui.BeginTooltip()
-            ImGui.Text('Sell All')
-            ImGui.TextDisabled('Sends all group toons running ProLoot to sell immediately.')
-            ImGui.EndTooltip()
-        end
+        statusAllAndSellAllButtons(maxX, itemSp, statusW, sellAllW)
     else
         -- Left: Rescan | Cancel
         if ImGui.Button('Rescan') then _items = _loot.ScanSellItems() end
         ImGui.SameLine()
         if ImGui.Button('Cancel') then _open = false end
-        -- Right: Status All | Sell All
-        ImGui.SameLine()
-        ImGui.SetCursorPosX(maxX - sellAllW - itemSp - statusW)
-        if ImGui.Button('Status All', statusW, 0) then
-            _groupView = true
-            _pendingStatusRequest = true
-            if _loot then _loot.ClearSellStatusResponses() end
-        end
-        ImGui.SameLine()
-        if ImGui.Button('Sell All', sellAllW, 0) then
-            _pendingSellAll = true
-            _open = false
-        end
-        if ImGui.IsItemHovered() then
-            ImGui.BeginTooltip()
-            ImGui.Text('Sell All')
-            ImGui.TextDisabled('Sends all group toons running ProLoot to sell immediately.')
-            ImGui.EndTooltip()
-        end
+        statusAllAndSellAllButtons(maxX, itemSp, statusW, sellAllW)
     end
 end
 
@@ -288,18 +284,19 @@ local function renderGroupFooter()
 
     -- Left: Sell All | Rescan | Cancel
     if ImGui.Button('Sell All') then
-        _pendingSellAll = true
+        _pendingSellAll = ImGui.GetIO().KeyShift and 'all' or 'group'
         _open = false
     end
     if ImGui.IsItemHovered() then
         ImGui.BeginTooltip()
         ImGui.Text('Sell All')
         ImGui.TextDisabled('Sends all group toons running ProLoot to sell immediately.')
+        ImGui.TextDisabled('Shift+Click: send to ALL online toons, not just your group.')
         ImGui.EndTooltip()
     end
     ImGui.SameLine()
     if ImGui.Button('Rescan') then
-        _pendingStatusRequest = true
+        _pendingStatusRequest = 'group'
         if _loot then _loot.ClearSellStatusResponses() end
     end
     ImGui.SameLine()

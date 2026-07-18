@@ -5,6 +5,7 @@ Adapter.name = 'none'
 
 function Adapter:Init()     end
 function Adapter:Broadcast(_msg)  end
+function Adapter:BroadcastAll(_msg) end
 function Adapter:Observe(_cb) end
 function Adapter:Tick()     end
 

@@ -12,10 +12,10 @@ local _loot       = nil
 local _iconAnim   = nil
 local _groupView  = false
 local _pendingItems          = nil
-local _pendingBankAll        = false
+local _pendingBankAll        = nil  -- nil = not pending; 'group' | 'all' once triggered
 local _pendingConsolidate    = false
-local _pendingConsolidateAll = false
-local _pendingStatusRequest  = false
+local _pendingConsolidateAll = nil  -- nil = not pending; 'group' | 'all' once triggered
+local _pendingStatusRequest  = nil  -- nil = not pending; 'group' | 'all' once triggered
 
 local EQ_ICON_OFFSET = 500
 local ICON_SIZE      = 40
@@ -54,18 +54,21 @@ function BankConfirm.ConsumePendingConsolidate()
 end
 
 function BankConfirm.ConsumePendingConsolidateAll()
-    if _pendingConsolidateAll then _pendingConsolidateAll = false; return true end
-    return false
+    local scope = _pendingConsolidateAll
+    _pendingConsolidateAll = nil
+    return scope
 end
 
 function BankConfirm.ConsumePendingBankAll()
-    if _pendingBankAll then _pendingBankAll = false; return true end
-    return false
+    local scope = _pendingBankAll
+    _pendingBankAll = nil
+    return scope
 end
 
 function BankConfirm.ConsumePendingBankStatusRequest()
-    if _pendingStatusRequest then _pendingStatusRequest = false; return true end
-    return false
+    local scope = _pendingStatusRequest
+    _pendingStatusRequest = nil
+    return scope
 end
 
 -----------------------------------------------------------------------
@@ -181,18 +184,26 @@ local function renderSoloFooter()
     ImGui.SetCursorPosX(maxX - bankAllW - itemSp - statusW)
     if ImGui.Button('Status All', statusW, 0) then
         _groupView = true
-        _pendingStatusRequest = true
+        _pendingStatusRequest = ImGui.GetIO().KeyShift and 'all' or 'group'
         if _loot then _loot.ClearBankStatusResponses() end
+    end
+    if ImGui.IsItemHovered() then
+        ImGui.BeginTooltip()
+        ImGui.Text('Status All')
+        ImGui.TextDisabled('Requests bank-queue status from all group toons running ProLoot.')
+        ImGui.TextDisabled('Shift+Click: request from ALL online toons, not just your group.')
+        ImGui.EndTooltip()
     end
     ImGui.SameLine()
     if ImGui.Button('Bank All', bankAllW, 0) then
-        _pendingBankAll = true
+        _pendingBankAll = ImGui.GetIO().KeyShift and 'all' or 'group'
         _open = false
     end
     if ImGui.IsItemHovered() then
         ImGui.BeginTooltip()
         ImGui.Text('Bank All')
         ImGui.TextDisabled('Sends all group toons running ProLoot to deposit immediately.')
+        ImGui.TextDisabled('Shift+Click: send to ALL online toons, not just your group.')
         ImGui.EndTooltip()
     end
 
@@ -265,31 +276,33 @@ local function renderGroupFooter()
 
     -- Left: Bank All | Rescan | Cancel | Consolidate All
     if ImGui.Button('Bank All') then
-        _pendingBankAll = true
+        _pendingBankAll = ImGui.GetIO().KeyShift and 'all' or 'group'
         _open = false
     end
     if ImGui.IsItemHovered() then
         ImGui.BeginTooltip()
         ImGui.Text('Bank All')
         ImGui.TextDisabled('Sends all group toons running ProLoot to deposit immediately.')
+        ImGui.TextDisabled('Shift+Click: send to ALL online toons, not just your group.')
         ImGui.EndTooltip()
     end
     ImGui.SameLine()
     if ImGui.Button('Rescan') then
-        _pendingStatusRequest = true
+        _pendingStatusRequest = 'group'
         if _loot then _loot.ClearBankStatusResponses() end
     end
     ImGui.SameLine()
     if ImGui.Button('Cancel') then _open = false end
     ImGui.SameLine()
     if ImGui.Button('Consolidate All') then
-        _pendingConsolidateAll = true
+        _pendingConsolidateAll = ImGui.GetIO().KeyShift and 'all' or 'group'
         _open = false
     end
     if ImGui.IsItemHovered() then
         ImGui.BeginTooltip()
         ImGui.Text('Consolidate All')
         ImGui.TextDisabled('Sends all group toons running ProLoot to consolidate coins.')
+        ImGui.TextDisabled('Shift+Click: send to ALL online toons, not just your group.')
         ImGui.EndTooltip()
     end
     -- Right: Solo

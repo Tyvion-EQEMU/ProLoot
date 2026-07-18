@@ -14,8 +14,8 @@ local _groupView    = false  -- false = solo view, true = group view
 
 local _pendingItems         = nil    -- consumed by main loop → RestockStuff
 local _pendingBroadcast     = nil    -- consumed by main loop → broadcast one item
-local _pendingStatusRequest = false  -- consumed by main loop → scan self + broadcast status request
-local _pendingRestockAll    = false  -- consumed by main loop → broadcast Restock All
+local _pendingStatusRequest = nil    -- consumed by main loop; nil | 'group' | 'all'
+local _pendingRestockAll    = nil    -- consumed by main loop; nil | 'group' | 'all'
 
 local _addName = ''
 local _addQty  = 1
@@ -49,13 +49,15 @@ function RestockConfirm.ConsumePendingBroadcast()
 end
 
 function RestockConfirm.ConsumePendingStatusRequest()
-    if _pendingStatusRequest then _pendingStatusRequest = false; return true end
-    return false
+    local scope = _pendingStatusRequest
+    _pendingStatusRequest = nil
+    return scope
 end
 
 function RestockConfirm.ConsumePendingRestockAll()
-    if _pendingRestockAll then _pendingRestockAll = false; return true end
-    return false
+    local scope = _pendingRestockAll
+    _pendingRestockAll = nil
+    return scope
 end
 
 -- -----------------------------------------------------------------------
@@ -79,9 +81,9 @@ local GREEN = ImVec4(0.4, 0.7, 0.4, 0.8)
 local GREEN_B = ImVec4(0.4, 0.8, 0.4, 1.0)
 local DIM = ImVec4(0.35, 0.35, 0.35, 1.0)
 
-local function restockAllButton()
-    if ImGui.Button('Restock All') then
-        _pendingRestockAll = true
+local function restockAllButton(width)
+    if ImGui.Button('Restock All', width or 0, 0) then
+        _pendingRestockAll = ImGui.GetIO().KeyShift and 'all' or 'group'
         _open = false
     end
     if ImGui.IsItemHovered() then
@@ -89,6 +91,7 @@ local function restockAllButton()
         ImGui.Text('Restock All')
         ImGui.TextDisabled('Sends all group toons running ProLoot to restock immediately.')
         ImGui.TextDisabled('Ignores the Auto Restock setting \xe2\x80\x94 no review window shown.')
+        ImGui.TextDisabled('Shift+Click: send to ALL online toons, not just your group.')
         ImGui.EndTooltip()
     end
 end
@@ -278,21 +281,18 @@ local function renderSoloFooter()
     ImGui.SetCursorPosX(maxX - restockW - itemSp - statusW)
     if ImGui.Button('Status All', statusW, 0) then
         _groupView = true
-        _pendingStatusRequest = true
+        _pendingStatusRequest = ImGui.GetIO().KeyShift and 'all' or 'group'
         if _loot then _loot.ClearRestockStatusResponses() end
-    end
-    ImGui.SameLine()
-    if ImGui.Button('Restock All', restockW, 0) then
-        _pendingRestockAll = true
-        _open = false
     end
     if ImGui.IsItemHovered() then
         ImGui.BeginTooltip()
-        ImGui.Text('Restock All')
-        ImGui.TextDisabled('Sends all group toons running ProLoot to restock immediately.')
-        ImGui.TextDisabled('Ignores the Auto Restock setting \xe2\x80\x94 no review window shown.')
+        ImGui.Text('Status All')
+        ImGui.TextDisabled('Requests restock status from all group toons running ProLoot.')
+        ImGui.TextDisabled('Shift+Click: request from ALL online toons, not just your group.')
         ImGui.EndTooltip()
     end
+    ImGui.SameLine()
+    restockAllButton(restockW)
 end
 
 -- -----------------------------------------------------------------------
@@ -365,7 +365,7 @@ local function renderGroupFooter()
     restockAllButton()
     ImGui.SameLine()
     if ImGui.Button('Rescan') then
-        _pendingStatusRequest = true
+        _pendingStatusRequest = 'group'
         if _loot then _loot.ClearRestockStatusResponses() end
     end
     ImGui.SameLine()

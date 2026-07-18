@@ -81,15 +81,29 @@ local function pushHistory(entry)
 end
 
 -----------------------------------------------------------------------
--- KEEP announcements go to the in-game group channel (/g).
+-- Sends a message to the in-game raid (/rs) or group (/g) channel, per the
+-- AnnounceChannel setting. Returns true if it went out on either channel,
+-- false if neither is available (caller should fall back to local chat).
+-----------------------------------------------------------------------
+local function sendGroupOrRaid(msg)
+    if _config:Get('AnnounceChannel') == 'raid' and (mq.TLO.Raid.Members() or 0) > 0 then
+        mq.cmdf('/rs %s', msg)
+        return true
+    elseif mq.TLO.Me.Grouped() then
+        mq.cmdf('/g %s', msg)
+        return true
+    end
+    return false
+end
+
+-----------------------------------------------------------------------
+-- KEEP announcements go to the in-game group/raid channel, per AnnounceChannel.
 -- All other decisions are silent in MQ chat — history panel and log only.
 -----------------------------------------------------------------------
 local function announceLoot(decision, name, reason, toon)
     local tag = decision:upper()
     local msg = string.format('ProLoot | %s: %s (%s)', tag, name, reason)
-    if mq.TLO.Me.Grouped() then
-        mq.cmdf('/g %s', msg)
-    else
+    if not sendGroupOrRaid(msg) then
         printf('\agProLoot\aw | \a-w[%s]\aw %-7s | %s \a-w(%s)\aw', toon, tag, name, reason)
     end
 end
@@ -632,7 +646,7 @@ end
 
 local function groupAnnounce(msg)
     printf('\agProLoot | %s', msg)
-    if mq.TLO.Me.Grouped() then mq.cmdf('/g ProLoot | %s', msg) end
+    sendGroupOrRaid('ProLoot | ' .. msg)
 end
 
 function Loot.ScanSellItems()
@@ -829,7 +843,7 @@ function Loot.BankStuff(items)
         mq.TLO.Window('BigBankWnd').DoClose()
     end
 
-    printf('\agProLoot: BankStuff complete \xe2\x80\x94 deposited %d/%d item(s)', count, #items)
+    groupAnnounce(('Bank Complete: deposited %d/%d item(s)'):format(count, #items))
     Logger.Info('BankStuff: deposited %d/%d item(s)', count, #items)
 end
 
@@ -1181,9 +1195,13 @@ function Loot.Init(cfg, lists, framework, channel, restock)
             if type(payload.value) == 'boolean' then
                 _config:SetAndSave('AnnounceDone', payload.value)
             end
+        elseif payload.type == 'set_announcechannel' then
+            if payload.value == 'group' or payload.value == 'raid' then
+                _config:SetAndSave('AnnounceChannel', payload.value)
+            end
         elseif payload.type == 'reload_lists' then
             _lists.LoadAll()
-            Logger.Info('Lists reloaded via group broadcast from %s', payload.from or '?')
+            Logger.Info('Lists reloaded via broadcast from %s', payload.from or '?')
         elseif payload.type == 'restock_set' then
             if restock and payload.name and payload.qty then
                 local prevQty = restock.GetQty(payload.name)
@@ -1209,7 +1227,7 @@ function Loot.Init(cfg, lists, framework, channel, restock)
                         parts[#parts+1] = r.name .. '|' .. r.have .. '|' .. r.want .. '|' .. r.need
                     end
                 end
-                _channel:Broadcast({
+                _channel:BroadcastAll({
                     type  = 'restock_status_response',
                     from  = mq.TLO.Me.CleanName(),
                     needs = table.concat(parts, ';'),
@@ -1244,7 +1262,7 @@ function Loot.Init(cfg, lists, framework, channel, restock)
                 for _, item in ipairs(myItems) do
                     parts[#parts+1] = item.name .. '|' .. item.value
                 end
-                _channel:Broadcast({
+                _channel:BroadcastAll({
                     type  = 'sell_status_response',
                     from  = mq.TLO.Me.CleanName(),
                     items = table.concat(parts, ';'),
@@ -1270,7 +1288,7 @@ function Loot.Init(cfg, lists, framework, channel, restock)
                 for _, item in ipairs(myItems) do
                     parts[#parts+1] = item.name
                 end
-                _channel:Broadcast({
+                _channel:BroadcastAll({
                     type  = 'bank_status_response',
                     from  = mq.TLO.Me.CleanName(),
                     items = table.concat(parts, ';'),

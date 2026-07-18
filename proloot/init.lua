@@ -173,8 +173,13 @@ mq.bind('/proloot', function(subcmd, ...)
         Config:SetAndSave('AnnounceDone', newVal)
         channel:Broadcast({ type='set_announcedone', value=newVal })
         printf('\agProLoot: Done Looting announce %s (all toons)', newVal and 'ON' or 'OFF')
+    elseif subcmd == 'toggleraid' then
+        local newVal = (Config:Get('AnnounceChannel') == 'raid') and 'group' or 'raid'
+        Config:SetAndSave('AnnounceChannel', newVal)
+        channel:Broadcast({ type='set_announcechannel', value=newVal })
+        printf('\agProLoot: Loot announce channel set to %s (all toons)', newVal:upper())
     else
-        printf('\ayProLoot commands: loot | bankstuff | sellstuff | restock | mini [on|off] | show | editor | eval | enable | disable | reload | set <setting> <value> | toggledone')
+        printf('\ayProLoot commands: loot | bankstuff | sellstuff | restock | mini [on|off] | show | editor | eval | enable | disable | reload | set <setting> <value> | toggledone | toggleraid')
     end
 end)
 
@@ -211,6 +216,13 @@ end)
 -----------------------------------------------------------------------
 -- Main loop
 -----------------------------------------------------------------------
+
+-- scope is 'all' (Shift+Click an "All" button — every online toon running
+-- ProLoot, via BroadcastAll) or 'group' (plain click — current in-game group).
+local function bcast(scope, payload)
+    if scope == 'all' then channel:BroadcastAll(payload) else channel:Broadcast(payload) end
+end
+
 local LOOT_INTERVAL = 5000  -- ms between automatic loot sweeps
 local lastLootTime  = 0
 local lastZone      = mq.TLO.Zone.ID()
@@ -232,10 +244,11 @@ while true do
         Loot.ConsolidateOnly()
     end
 
-    -- Bank All: broadcast to group + trigger self immediately
-    if BankConfirm.ConsumePendingBankAll() then
+    -- Bank All: broadcast (group or all, per Shift+Click) + trigger self immediately
+    local bankAllScope = BankConfirm.ConsumePendingBankAll()
+    if bankAllScope then
         local myName  = mq.TLO.Me.CleanName()
-        channel:Broadcast({ type='bank_all', from=myName })
+        bcast(bankAllScope, { type='bank_all', from=myName })
         local myItems = Loot.ScanBankItems()
         if #myItems > 0 then _pendingAutoBank = myItems end
     end
@@ -246,9 +259,10 @@ while true do
         if #myItems > 0 then _pendingAutoBank = myItems end
     end
 
-    -- Consolidate All: broadcast to group + trigger self immediately
-    if BankConfirm.ConsumePendingConsolidateAll() then
-        channel:Broadcast({ type='consolidate_all', from=mq.TLO.Me.CleanName() })
+    -- Consolidate All: broadcast (group or all, per Shift+Click) + trigger self immediately
+    local consolidateAllScope = BankConfirm.ConsumePendingConsolidateAll()
+    if consolidateAllScope then
+        bcast(consolidateAllScope, { type='consolidate_all', from=mq.TLO.Me.CleanName() })
         Loot.ConsolidateOnly()
     end
 
@@ -264,10 +278,11 @@ while true do
         Loot.SellStuff(sellItems)
     end
 
-    -- Sell All: broadcast to group + trigger self immediately
-    if SellConfirm.ConsumePendingSellAll() then
+    -- Sell All: broadcast (group or all, per Shift+Click) + trigger self immediately
+    local sellAllScope = SellConfirm.ConsumePendingSellAll()
+    if sellAllScope then
         local myName = mq.TLO.Me.CleanName()
-        channel:Broadcast({ type='sell_all', from=myName })
+        bcast(sellAllScope, { type='sell_all', from=myName })
         local myItems = Loot.ScanSellItems()
         if #myItems > 0 then _pendingSell = myItems end
     end
@@ -286,30 +301,33 @@ while true do
     end
 
     -- Restock broadcast: share one item+qty with all group toons
-    local bcast = RestockConfirm.ConsumePendingBroadcast()
-    if bcast then
-        channel:Broadcast({ type='restock_set', name=bcast.name, qty=bcast.qty, from=mq.TLO.Me.CleanName() })
-        printf('\agProLoot: broadcasting %s x%d to group', bcast.name, bcast.qty)
+    local restockShare = RestockConfirm.ConsumePendingBroadcast()
+    if restockShare then
+        channel:Broadcast({ type='restock_set', name=restockShare.name, qty=restockShare.qty, from=mq.TLO.Me.CleanName() })
+        printf('\agProLoot: broadcasting %s x%d to group', restockShare.name, restockShare.qty)
     end
 
-    -- Sell Status All: scan self + broadcast request so other toons respond
-    if SellConfirm.ConsumePendingSellStatusRequest() then
+    -- Sell Status All: scan self + broadcast request (group or all, per Shift+Click)
+    local sellStatusScope = SellConfirm.ConsumePendingSellStatusRequest()
+    if sellStatusScope then
         local myName  = mq.TLO.Me.CleanName()
         local myItems = Loot.ScanSellItems()
         Loot.StoreSellStatusResponse(myName, myItems)
-        channel:Broadcast({ type='sell_status_request', from=myName })
+        bcast(sellStatusScope, { type='sell_status_request', from=myName })
     end
 
-    -- Bank Status All: scan self + broadcast request so other toons respond
-    if BankConfirm.ConsumePendingBankStatusRequest() then
+    -- Bank Status All: scan self + broadcast request (group or all, per Shift+Click)
+    local bankStatusScope = BankConfirm.ConsumePendingBankStatusRequest()
+    if bankStatusScope then
         local myName  = mq.TLO.Me.CleanName()
         local myItems = Loot.ScanBankItems()
         Loot.StoreBankStatusResponse(myName, myItems)
-        channel:Broadcast({ type='bank_status_request', from=myName })
+        bcast(bankStatusScope, { type='bank_status_request', from=myName })
     end
 
-    -- Restock Status All: scan self + broadcast request so other toons respond
-    if RestockConfirm.ConsumePendingStatusRequest() then
+    -- Restock Status All: scan self + broadcast request (group or all, per Shift+Click)
+    local restockStatusScope = RestockConfirm.ConsumePendingStatusRequest()
+    if restockStatusScope then
         local myName  = mq.TLO.Me.CleanName()
         local all     = Loot.ScanRestockNeeds(Restock)
         local myNeeds = {}
@@ -317,13 +335,14 @@ while true do
             if r.need > 0 then myNeeds[#myNeeds+1] = r end
         end
         Loot.StoreRestockStatusResponse(myName, myNeeds)
-        channel:Broadcast({ type='restock_status_request', from=myName })
+        bcast(restockStatusScope, { type='restock_status_request', from=myName })
     end
 
-    -- Restock All: broadcast to group + trigger self immediately
-    if RestockConfirm.ConsumePendingRestockAll() then
+    -- Restock All: broadcast (group or all, per Shift+Click) + trigger self immediately
+    local restockAllScope = RestockConfirm.ConsumePendingRestockAll()
+    if restockAllScope then
         local myName = mq.TLO.Me.CleanName()
-        channel:Broadcast({ type='restock_all', from=myName })
+        bcast(restockAllScope, { type='restock_all', from=myName })
         local needs = Loot.ScanRestockNeeds(Restock)
         local items = {}
         for _, r in ipairs(needs) do

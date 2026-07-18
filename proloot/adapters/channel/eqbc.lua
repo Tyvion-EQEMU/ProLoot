@@ -70,6 +70,9 @@ function Adapter:Broadcast(payload)
     mq.cmdf('/bca /bcst %s%s', PREFIX, encoded)
 end
 
+-- EQBC's /bca already reaches every connected client regardless of in-game group/raid.
+Adapter.BroadcastAll = Adapter.Broadcast
+
 function Adapter:Observe(cb)
     table.insert(_observers, cb)
 end

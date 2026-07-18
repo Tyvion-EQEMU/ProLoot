@@ -77,13 +77,13 @@ local function renderTab(listName)
 
     if ImGui.Button('Reload for All##' .. listName) then
         if _channel then
-            _channel:Broadcast({ type='reload_lists' })
+            _channel:BroadcastAll({ type='reload_lists' })
         end
     end
     if ImGui.IsItemHovered() then
         ImGui.BeginTooltip()
         ImGui.PushTextWrapPos(260)
-        ImGui.TextWrapped('Signal all group toons to reload their lists from disk')
+        ImGui.TextWrapped('Signal all toons running ProLoot to reload their lists from disk')
         ImGui.PopTextWrapPos()
         ImGui.EndTooltip()
     end
