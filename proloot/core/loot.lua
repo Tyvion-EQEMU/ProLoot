@@ -119,22 +119,40 @@ local function evaluateItem(item)
     local name = item.Name() or ''
     local id   = item.ID()
 
-    -- User override lists take absolute priority over all automated logic
+    -- User override lists take absolute priority over all automated logic.
+    -- Each list entry may carry a desired pickup count (0 = unlimited); it's
+    -- passed through as the 4th return so lootSlot can guard non-lore items
+    -- that drop more copies on a corpse than we actually need.
+    local matched, count
     if _lists.skip    and _lists.skip:Has(name, id)    then return DECISION.SKIP,    'skip-list'    end
     if _lists.destroy and _lists.destroy:Has(name, id) then return DECISION.DESTROY, 'destroy-list' end
-    if _lists.keep    and _lists.keep:Has(name, id)    then return DECISION.KEEP,    'keep-list'    end
-    if _lists.bank    and _lists.bank:Has(name, id)    then return DECISION.BANK,    'bank-list'    end
+    if _lists.keep then
+        matched, count = _lists.keep:Has(name, id)
+        if matched then return DECISION.KEEP, 'keep-list', nil, count end
+    end
+    if _lists.bank then
+        matched, count = _lists.bank:Has(name, id)
+        if matched then return DECISION.BANK, 'bank-list', nil, count end
+    end
 
     -- Named category lists
-    if _lists.sell:Has(name, id)      then return DECISION.SELL, 'sell-list' end
-    if _lists.quest:Has(name, id)     then return DECISION.KEEP, 'quest'     end
-    if _lists.event:Has(name, id)     then return DECISION.KEEP, 'event'     end
-    if _lists.lore:Has(name, id)      then return DECISION.KEEP, 'lore'      end
-    if _lists.astrial:Has(name, id)   then return DECISION.BANK, 'astrial'   end
-    if _lists.deva:Has(name, id)      then return DECISION.BANK, 'deva'      end
-    if _lists.specials:Has(name, id)  then return DECISION.KEEP, 'special'   end
-    if _lists.tiered:Has(name, id)    then return DECISION.KEEP, 'tiered'    end
-    if _lists.beasts:Has(name, id)    then return DECISION.KEEP, 'beast'     end
+    if _lists.sell:Has(name, id) then return DECISION.SELL, 'sell-list' end
+    matched, count = _lists.quest:Has(name, id)
+    if matched then return DECISION.KEEP, 'quest', nil, count end
+    matched, count = _lists.event:Has(name, id)
+    if matched then return DECISION.KEEP, 'event', nil, count end
+    matched, count = _lists.lore:Has(name, id)
+    if matched then return DECISION.KEEP, 'lore', nil, count end
+    matched, count = _lists.astrial:Has(name, id)
+    if matched then return DECISION.BANK, 'astrial', nil, count end
+    matched, count = _lists.deva:Has(name, id)
+    if matched then return DECISION.BANK, 'deva', nil, count end
+    matched, count = _lists.specials:Has(name, id)
+    if matched then return DECISION.KEEP, 'special', nil, count end
+    matched, count = _lists.tiered:Has(name, id)
+    if matched then return DECISION.KEEP, 'tiered', nil, count end
+    matched, count = _lists.beasts:Has(name, id)
+    if matched then return DECISION.KEEP, 'beast', nil, count end
 
     local weaponMode    = _config:Get('WeaponMode')
     local rangedMode    = _config:Get('RangedMode')
@@ -183,11 +201,11 @@ local function lootSlot(slotIndex)
     local item = mq.TLO.Corpse.Item(slotIndex)
     if not item or not item.ID() or item.ID() == 0 then return end
 
-    local name                         = item.Name() or '(unknown)'
-    local isNoDrop                     = item.NoDrop() == true
-    local decision, reason, equipSlot  = evaluateItem(item)
-    local myToon                       = mq.TLO.Me.CleanName()
-    local id                           = item.ID()
+    local name                                      = item.Name() or '(unknown)'
+    local isNoDrop                                  = item.NoDrop() == true
+    local decision, reason, equipSlot, desiredCount = evaluateItem(item)
+    local myToon                                    = mq.TLO.Me.CleanName()
+    local id                                        = item.ID()
     local replacedName, replacedId
 
     Logger.Debug('%s -> %s (%s)', name, decision, reason)
@@ -211,6 +229,22 @@ local function lootSlot(slotIndex)
                           decision='skip', reason='lore-have', toon=myToon })
             _channel:Broadcast({ type='loot_event', name=name, id=id, decision='skip',
                                   reason='lore-have', date=os.date('%m/%d'),
+                                  time=os.date('%H:%M:%S'), toon=myToon })
+            return
+        end
+    end
+
+    -- Guard: if this list entry has a desired pickup count set, stop once we
+    -- already have that many. Handles non-lore progression items where a
+    -- corpse can drop more copies than we actually need (the game won't stop
+    -- us the way it does for LORE items above).
+    if desiredCount and desiredCount > 0 then
+        local have = mq.TLO.FindItemCount('=' .. name)() or 0
+        if have >= desiredCount then
+            pushHistory({ date=os.date('%m/%d'), time=os.date('%H:%M:%S'), name=name, id=id,
+                          decision='skip', reason='count-limit', toon=myToon })
+            _channel:Broadcast({ type='loot_event', name=name, id=id, decision='skip',
+                                  reason='count-limit', date=os.date('%m/%d'),
                                   time=os.date('%H:%M:%S'), toon=myToon })
             return
         end

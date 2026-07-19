@@ -2,7 +2,8 @@
 -- Changes are written to disk immediately on every add/remove (auto-save).
 -- "Reload for All" broadcasts a reload signal to group peers via channel.
 
-local mq = require('mq')
+local mq      = require('mq')
+local Widgets = require('proloot.ui.widgets')
 
 local Editor = {}
 
@@ -98,14 +99,16 @@ local function renderTab(listName)
 
     ImGui.BeginChild('##list_' .. listName, ImVec2(0, -30), ImGuiChildFlags.None)
 
-    if ImGui.BeginTable('##tbl_' .. listName, 4,
+    if ImGui.BeginTable('##tbl_' .. listName, 6,
         bit32.bor(ImGuiTableFlags.Borders, ImGuiTableFlags.RowBg,
                   ImGuiTableFlags.SizingStretchProp)) then
 
-        ImGui.TableSetupColumn('#',    ImGuiTableColumnFlags.WidthFixed,  30)
-        ImGui.TableSetupColumn('Item', ImGuiTableColumnFlags.WidthStretch)
-        ImGui.TableSetupColumn('ID',   ImGuiTableColumnFlags.WidthFixed,  65)
-        ImGui.TableSetupColumn('',     ImGuiTableColumnFlags.WidthFixed,  22)
+        ImGui.TableSetupColumn('#',      ImGuiTableColumnFlags.WidthFixed,  30)
+        ImGui.TableSetupColumn('Item',   ImGuiTableColumnFlags.WidthStretch)
+        ImGui.TableSetupColumn('ID',     ImGuiTableColumnFlags.WidthFixed,  65)
+        ImGui.TableSetupColumn('Need',   ImGuiTableColumnFlags.WidthFixed,  55)
+        ImGui.TableSetupColumn('Active', ImGuiTableColumnFlags.WidthFixed,  45)
+        ImGui.TableSetupColumn('',       ImGuiTableColumnFlags.WidthFixed,  22)
         ImGui.TableHeadersRow()
 
         local entries  = lst:Entries()
@@ -117,8 +120,10 @@ local function renderTab(listName)
                 ImGui.TableNextColumn()
                 ImGui.TextDisabled(tostring(i))
 
+                local isDisabled = entry.enabled == false
+
                 ImGui.TableNextColumn()
-                ImGui.Text(entry.name)
+                if isDisabled then ImGui.TextDisabled(entry.name) else ImGui.Text(entry.name) end
                 if ImGui.IsItemHovered() then
                     ImGui.SetMouseCursor(ImGuiMouseCursor.Hand)
                     if ImGui.IsMouseReleased(ImGuiMouseButton.Left) then
@@ -134,6 +139,37 @@ local function renderTab(listName)
                 ImGui.TableNextColumn()
                 if entry.id and entry.id > 0 then
                     ImGui.TextDisabled(tostring(entry.id))
+                end
+
+                ImGui.TableNextColumn()
+                if isDisabled then ImGui.BeginDisabled() end
+                ImGui.SetNextItemWidth(-1)
+                local newCount, countChanged = ImGui.InputInt('##need_' .. listName .. i, entry.count or 0, 0, 0)
+                if countChanged and newCount >= 0 then
+                    lst:SetCount(entry.name, newCount)
+                    lst:Save()
+                end
+                if isDisabled then ImGui.EndDisabled() end
+                if ImGui.IsItemHovered() then
+                    ImGui.BeginTooltip()
+                    ImGui.PushTextWrapPos(260)
+                    ImGui.TextWrapped('How many of this item to pick up before ProLoot leaves the rest on the corpse. 0 = unlimited (pick up every copy, same as before). Useful for non-lore progression items that drop more copies than you need.')
+                    ImGui.PopTextWrapPos()
+                    ImGui.EndTooltip()
+                end
+
+                ImGui.TableNextColumn()
+                local newEnabled, enabledChanged = Widgets.Toggle('##active_' .. listName .. i, entry.enabled ~= false)
+                if enabledChanged then
+                    lst:SetEnabled(entry.name, newEnabled)
+                    lst:Save()
+                end
+                if ImGui.IsItemHovered() then
+                    ImGui.BeginTooltip()
+                    ImGui.PushTextWrapPos(260)
+                    ImGui.TextWrapped('Off: stop picking this item up (e.g. quest is done) without losing it from the list — flip back on any time.')
+                    ImGui.PopTextWrapPos()
+                    ImGui.EndTooltip()
                 end
 
                 ImGui.TableNextColumn()

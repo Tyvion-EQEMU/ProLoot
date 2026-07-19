@@ -55,12 +55,18 @@ function Base:Load()
         for line in f:lines() do
             line = line:match('^%s*(.-)%s*$') -- trim
             if line ~= '' and line:sub(1,1) ~= '#' then
-                -- Format: "ItemName" or "ItemName|12345"
-                local itemName, idStr = line:match('^([^|]+)|?(%d*)$')
-                if itemName then
-                    itemName = itemName:match('^%s*(.-)%s*$')
-                    local id = tonumber(idStr) or 0
-                    self:_add(itemName, id, false)
+                -- Format: "ItemName", "ItemName|12345", "ItemName|12345|3" (3rd field
+                -- is the desired pickup count — 0/absent means unlimited), or
+                -- "ItemName|12345|3|0" (4th field is enabled — 0 = soft-disabled,
+                -- absent/anything else = enabled).
+                local fields = {}
+                for part in (line .. '|'):gmatch('([^|]*)|') do fields[#fields+1] = part end
+                local itemName = fields[1] and fields[1]:match('^%s*(.-)%s*$')
+                if itemName and itemName ~= '' then
+                    local id      = tonumber(fields[2]) or 0
+                    local count   = tonumber(fields[3]) or 0
+                    local enabled = not (fields[4] and fields[4] ~= '' and tonumber(fields[4]) == 0)
+                    self:_add(itemName, id, count, enabled, false)
                 end
             end
         end
@@ -68,7 +74,7 @@ function Base:Load()
         -- Merge any seeds not already present (picks up new defaults after updates)
         local merged = 0
         for _, entry in ipairs(self._seeds) do
-            if self:_add(entry.name, entry.id or 0, false) then
+            if self:_add(entry.name, entry.id or 0, entry.count or 0, entry.enabled, false) then
                 Logger.Info('Lists: merged new seed "%s" into %s list', entry.name, self._name)
                 merged = merged + 1
             end
@@ -80,7 +86,7 @@ function Base:Load()
     else
         -- First run: seed defaults
         for _, entry in ipairs(self._seeds) do
-            self:_add(entry.name, entry.id or 0, false)
+            self:_add(entry.name, entry.id or 0, entry.count or 0, entry.enabled, false)
         end
         self:Save()
     end
@@ -95,7 +101,12 @@ function Base:Save()
         return
     end
     for _, entry in ipairs(self._ordered) do
-        if entry.id and entry.id > 0 then
+        if entry.enabled == false then
+            -- Disabled entries always write all 4 fields so the 0 lands in position 4.
+            f:write(string.format('%s|%d|%d|0\n', entry.name, entry.id or 0, entry.count or 0))
+        elseif entry.count and entry.count > 0 then
+            f:write(string.format('%s|%d|%d\n', entry.name, entry.id or 0, entry.count))
+        elseif entry.id and entry.id > 0 then
             f:write(string.format('%s|%d\n', entry.name, entry.id))
         else
             f:write(string.format('%s\n', entry.name))
@@ -105,27 +116,29 @@ function Base:Save()
     self._dirty = false
 end
 
-function Base:_add(name, id, markDirty)
+function Base:_add(name, id, count, enabled, markDirty)
     local key = name:lower()
     if self._byName[key] then return false end -- duplicate
-    self._byName[key] = true
-    if id and id > 0 then self._byId[id] = true end
-    table.insert(self._ordered, { name=name, id=id or 0 })
+    local entry = { name=name, id=id or 0, count=count or 0, enabled=(enabled ~= false) }
+    self._byName[key] = entry
+    if entry.id > 0 then self._byId[entry.id] = entry end
+    table.insert(self._ordered, entry)
     if markDirty ~= false then self._dirty = true end
     return true
 end
 
-function Base:Add(name, id)
-    return self:_add(name, id, true)
+function Base:Add(name, id, count, enabled)
+    return self:_add(name, id, count, enabled, true)
 end
 
 function Base:Remove(name)
-    local key = name:lower()
-    if not self._byName[key] then return false end
+    local key   = name:lower()
+    local entry = self._byName[key]
+    if not entry then return false end
     self._byName[key] = nil
-    for i, entry in ipairs(self._ordered) do
-        if entry.name:lower() == key then
-            if entry.id and entry.id > 0 then self._byId[entry.id] = nil end
+    if entry.id and entry.id > 0 then self._byId[entry.id] = nil end
+    for i, e in ipairs(self._ordered) do
+        if e == entry then
             table.remove(self._ordered, i)
             break
         end
@@ -134,11 +147,36 @@ function Base:Remove(name)
     return true
 end
 
--- Primary lookup called by core/loot.lua
+-- Sets the desired pickup count for an existing entry (0 = unlimited). Caller
+-- is responsible for calling Save() afterward, matching the Add/Remove pattern.
+function Base:SetCount(name, count)
+    local entry = self._byName[name:lower()]
+    if not entry then return false end
+    entry.count = count or 0
+    self._dirty = true
+    return true
+end
+
+-- Soft-disables/re-enables an entry without removing it from the list (keeps
+-- the item name/id/count on file so it can be flipped back on later). Caller
+-- is responsible for calling Save() afterward, matching the Add/Remove pattern.
+function Base:SetEnabled(name, enabled)
+    local entry = self._byName[name:lower()]
+    if not entry then return false end
+    entry.enabled = (enabled ~= false)
+    self._dirty = true
+    return true
+end
+
+-- Primary lookup called by core/loot.lua. A soft-disabled entry (enabled=false)
+-- reports as not-found here so loot logic treats it as if it weren't on the
+-- list at all, while it still shows up (greyed out) in the List Editor via
+-- Entries(). Second return is the entry's desired pickup count (0 = unlimited)
+-- when found, 0 otherwise.
 function Base:Has(name, id)
-    if id and id > 0 and self._byId[id] then return true end
-    if name and self._byName[name:lower()] then return true end
-    return false
+    local entry = (id and id > 0 and self._byId[id]) or (name and self._byName[name:lower()])
+    if entry and entry.enabled ~= false then return true, entry.count or 0 end
+    return false, 0
 end
 
 function Base:Entries()
