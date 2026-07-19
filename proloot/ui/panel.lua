@@ -94,6 +94,17 @@ local BUTTON_GOLD = ImVec4(1.0, 0.72, 0.20, 1.0)
 -- bullet entries starting with "  • ". Prepend a new block for each release
 -- (older blocks stay for history) or trim if it gets too long.
 local BUILD_NOTES = [[
+v0.10.4 Beta  —  2026-07-19
+
+  New Features:
+  • List Editor: "Need" column — set how many copies of a non-lore item to
+    pick up before ProLoot leaves the rest on the corpse (0 = unlimited,
+    same as before). Fixes over-looting progression items that drop more
+    copies per corpse than you actually need.
+  • List Editor: "Active" toggle — soft-disable an item (e.g. quest done)
+    without removing it from the list; flip it back on any time
+  • Tiered list items now default to Need = 1 for new users
+
 v0.10.3 Beta  —  2026-07-18
 
   New Features:
