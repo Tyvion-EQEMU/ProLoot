@@ -48,8 +48,8 @@ local CHANNEL_ADAPTERS = {
 local function parseArgs(args)
     local opts = {}
     if args then
-        for _, arg in ipairs(args) do
-            local k, v = arg:match('^(%w+)=(.+)$')
+        for _, a in ipairs(args) do
+            local k, v = a:match('^(%w+)=(.+)$')
             if k and v then opts[k:lower()] = v:lower() end
         end
     end
@@ -59,7 +59,12 @@ end
 -----------------------------------------------------------------------
 -- Startup
 -----------------------------------------------------------------------
-local opts = parseArgs(arg)
+-- MQ2Lua passes script args to the main chunk as varargs (...); the global
+-- `arg` table is a lua.exe CLI-interpreter convention that isn't guaranteed
+-- by an embedded host, so prefer `...` and only fall back to `arg` if unset.
+local cliArgs = { ... }
+if #cliArgs == 0 and arg then cliArgs = arg end
+local opts = parseArgs(cliArgs)
 
 Config:Init()
 Logger.Init(Config)
@@ -391,9 +396,15 @@ while true do
 
     Loot.CombatTick()
 
-    -- Periodic auto-loot
+    -- Periodic auto-loot — suppressed for directed frameworks (e.g. rgmercs-directed),
+    -- which loot only when the host framework signals it's safe via ConsumeDirective().
     local now = mq.gettime()
-    if Config:Get('LootEnabled') and (now - lastLootTime) >= LOOT_INTERVAL then
+    if framework.directed then
+        if framework:ConsumeDirective() then
+            Loot.LootNearby()
+            lastLootTime = now
+        end
+    elseif Config:Get('LootEnabled') and (now - lastLootTime) >= LOOT_INTERVAL then
         Loot.LootNearby()
         lastLootTime = now
     end

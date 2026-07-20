@@ -56,8 +56,8 @@ local function wmIndexOf(val)
 end
 
 -- Framework / channel combo lists
-local FRAMEWORKS = { 'none', 'rgmercs', 'e3', 'kissassist' }
-local FRAMEWORK_LABELS = { none='None', rgmercs='RG Mercs', e3='E3', kissassist='Kiss Assist' }
+local FRAMEWORKS = { 'none', 'rgmercs', 'rgmercs-directed', 'e3', 'kissassist' }
+local FRAMEWORK_LABELS = { none='None', rgmercs='RG Mercs', ['rgmercs-directed']='RG Mercs (Directed)', e3='E3', kissassist='Kiss Assist' }
 
 local CHANNELS = { 'none', 'dannet', 'eqbc' }
 local CHANNEL_LABELS = { none='None', dannet='DanNet', eqbc='EQBC' }
