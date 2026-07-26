@@ -94,7 +94,7 @@ local BUTTON_GOLD = ImVec4(1.0, 0.72, 0.20, 1.0)
 -- bullet entries starting with "  • ". Prepend a new block for each release
 -- (older blocks stay for history) or trim if it gets too long.
 local BUILD_NOTES = [[
-v0.10.5 Dev  —  2026-07-19
+v0.10.5 Beta  —  2026-07-26
 
   New Features:
   • rgmercs-directed framework is now fully reactive — RGMercs's native
