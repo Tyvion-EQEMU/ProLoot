@@ -368,7 +368,13 @@ end
 
 function Loot.LootNearby()
     if not _config:Get('LootEnabled') then return end
-    if _inCombat then return end
+    -- Directed frameworks (e.g. rgmercs-directed) only ever call LootNearby() in
+    -- response to a directive the host framework already combat-gated on its own
+    -- (see rgmercs's own "Combat Looting" setting) — trust it and skip our own
+    -- redundant combat check. Non-directed frameworks fall back to the per-character toggle.
+    local isDirected  = _framework and _framework.directed
+    local combatLootOK = isDirected or _config:Get('LootDuringCombat')
+    if _inCombat and not combatLootOK then return end
     if _looting then return end
 
     local useWarp = _config:Get('UseWarp')
@@ -377,17 +383,28 @@ function Loot.LootNearby()
 
     Logger.Debug('sweep started - %d corpse(s) in range', #corpses)
     _looting = true
-    local lootStarted = _framework and _framework.BeginLoot ~= nil
-    if lootStarted then _framework:BeginLoot() end
+    local hasBeginLoot = _framework and _framework.BeginLoot ~= nil
+    -- Directed frameworks' Begin/EndLoot are a completion handshake the host framework's
+    -- own wait loop depends on, never a pause — always fire them. Non-directed frameworks
+    -- (e.g. rgmercs's /rgl pause) freeze the host's entire combat assistance, so never
+    -- hold that pause while actually in combat.
+    local framePaused = hasBeginLoot and (isDirected or not _inCombat)
+    if framePaused then _framework:BeginLoot() end
     for _, c in ipairs(corpses) do
         -- refresh combat state inline — CombatTick() doesn't run while we're blocking here
         _inCombat = mq.TLO.Me.CombatState() == 'COMBAT'
-        if not _config:Get('LootEnabled') or _inCombat or not Corpse.SafeToLoot() then break end
-        if _framework and _framework.RefreshLoot then _framework:RefreshLoot() end
+        if framePaused and _inCombat and not isDirected then
+            -- combat started mid-sweep — release the framework pause immediately
+            -- rather than holding it for the rest of the sweep
+            _framework:EndLoot()
+            framePaused = false
+        end
+        if not _config:Get('LootEnabled') or (_inCombat and not combatLootOK) or not Corpse.SafeToLoot() then break end
+        if framePaused and _framework.RefreshLoot then _framework:RefreshLoot() end
         Loot.LootCorpse(c.id, useWarp)
         mq.delay(250)
     end
-    if lootStarted then _framework:EndLoot() end
+    if framePaused then _framework:EndLoot() end
     _looting = false
 
     -- Announce done only when the sweep leaves no corpses remaining

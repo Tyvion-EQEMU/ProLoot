@@ -830,6 +830,29 @@ function Panel.Render()
             local newAnnounceRaid, channelChanged = Widgets.Toggle('##announcechannel', announceRaid)
             if channelChanged then _config:SetAndSave('AnnounceChannel', newAnnounceRaid and 'raid' or 'group') end
 
+            -- Loot in Combat
+            ImGui.TableNextRow()
+            ImGui.TableNextColumn()
+            local isDirectedFramework = _config:Get('Framework') == 'rgmercs-directed'
+            ImGui.Text('Loot in Combat')
+            if ImGui.IsItemHovered() then
+                ImGui.BeginTooltip()
+                ImGui.PushTextWrapPos(280)
+                if isDirectedFramework then
+                    ImGui.TextWrapped('Controlled by RG Mercs\' own "Combat Looting" setting (ProLoot module) in RG Mercs (Directed) mode — this toggle has no effect here.')
+                else
+                    ImGui.TextWrapped('When on, loot sweeps run even while you are in combat. For RG Mercs, ProLoot will not pause it while you are actually fighting. Use with caution — looting mid-fight can pull you toward a corpse while mobs are still attacking.')
+                end
+                ImGui.PopTextWrapPos()
+                ImGui.EndTooltip()
+            end
+            ImGui.TableNextColumn()
+            if isDirectedFramework then ImGui.BeginDisabled() end
+            local lootInCombat = _config:Get('LootDuringCombat')
+            local newLootInCombat, combatLootChanged = Widgets.Toggle('##lootduringcombat', lootInCombat)
+            if combatLootChanged then _config:SetAndSave('LootDuringCombat', newLootInCombat) end
+            if isDirectedFramework then ImGui.EndDisabled() end
+
             -- Slot Exclusions
             ImGui.TableNextRow()
             ImGui.TableNextColumn()

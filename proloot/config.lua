@@ -63,6 +63,7 @@ Config.Defaults = {
 
     -- Feature toggles
     LootEnabled        = true,
+    LootDuringCombat   = false,   -- allow loot sweeps while Me.CombatState()=='COMBAT' (per-character; ignored in rgmercs-directed mode)
     LootCorpses        = true,
     LootPets           = false,
     LootGroup          = false,   -- loot group members' nearby corpses
