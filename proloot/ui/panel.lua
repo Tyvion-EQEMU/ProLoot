@@ -94,6 +94,15 @@ local BUTTON_GOLD = ImVec4(1.0, 0.72, 0.20, 1.0)
 -- bullet entries starting with "  • ". Prepend a new block for each release
 -- (older blocks stay for history) or trim if it gets too long.
 local BUILD_NOTES = [[
+v0.10.6 Dev  —  2026-07-26
+
+  New Features:
+  • "Loot in Combat" toggle (per-character) — allows loot sweeps to run while
+    you're in combat, instead of waiting for combat to end. For RG Mercs, ProLoot
+    now avoids pausing it while you're actually fighting. Has no effect in
+    RG Mercs (Directed) mode — that's controlled entirely by RG Mercs' own
+    "Combat Looting" setting.
+
 v0.10.5 Beta  —  2026-07-26
 
   New Features:
