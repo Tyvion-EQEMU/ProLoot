@@ -5,15 +5,16 @@ local mq = require('mq')
 local Setup = {}
 
 -- Framework and channel options in display order
-local FRAMEWORKS  = { 'none', 'rgmercs', 'e3', 'kissassist' }
+local FRAMEWORKS  = { 'none', 'rgmercs', 'rgmercs-directed', 'e3', 'kissassist' }
 local CHANNELS    = { 'none', 'dannet', 'eqbc' }
 local WEAPONMODES = { 'DW', '2H', 'SNB', 'ANY' }
 
 local FRAMEWORK_LABELS = {
-    none       = 'None (standalone)',
-    rgmercs    = 'RGMercs',
-    e3         = 'E3Next',
-    kissassist = 'KISSAssist',
+    none               = 'None (standalone)',
+    rgmercs            = 'RGMercs',
+    ['rgmercs-directed'] = 'RGMercs (Directed)',
+    e3                 = 'E3Next',
+    kissassist         = 'KISSAssist',
 }
 local CHANNEL_LABELS = {
     none   = 'None (solo)',

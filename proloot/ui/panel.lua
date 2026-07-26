@@ -56,8 +56,8 @@ local function wmIndexOf(val)
 end
 
 -- Framework / channel combo lists
-local FRAMEWORKS = { 'none', 'rgmercs', 'e3', 'kissassist' }
-local FRAMEWORK_LABELS = { none='None', rgmercs='RG Mercs', e3='E3', kissassist='Kiss Assist' }
+local FRAMEWORKS = { 'none', 'rgmercs', 'rgmercs-directed', 'e3', 'kissassist' }
+local FRAMEWORK_LABELS = { none='None', rgmercs='RG Mercs', ['rgmercs-directed']='RG Mercs (Directed)', e3='E3', kissassist='Kiss Assist' }
 
 local CHANNELS = { 'none', 'dannet', 'eqbc' }
 local CHANNEL_LABELS = { none='None', dannet='DanNet', eqbc='EQBC' }
@@ -94,6 +94,17 @@ local BUTTON_GOLD = ImVec4(1.0, 0.72, 0.20, 1.0)
 -- bullet entries starting with "  • ". Prepend a new block for each release
 -- (older blocks stay for history) or trim if it gets too long.
 local BUILD_NOTES = [[
+v0.10.5 Dev  —  2026-07-19
+
+  New Features:
+  • rgmercs-directed framework is now fully reactive — RGMercs's native
+    ProLoot loot module tells ProLoot exactly when it's safe to loot and
+    ProLoot waits for that signal instead of sweeping on its own timer.
+    Requires a matching RGMercs build (Tyvion-EQEMU/rgmercs
+    feat/proloot-directed-loot).
+  • Fixed a bug where framework=rgmercs-directed (and any other
+    framework=... launch argument) could silently fail to apply
+
 v0.10.4 Beta  —  2026-07-19
 
   New Features:

@@ -2,15 +2,19 @@
 --
 -- Unlike the standard rgmercs adapter (which issues /rgl pause), this adapter signals
 -- RGMercs's loot_module via Actors so RGMercs holds camp enforcement cooperatively
--- without pausing combat assistance entirely.
+-- without pausing combat assistance entirely. RGMercs also decides *when* to loot —
+-- it sends a 'doloot' directive to our own 'proloot' mailbox (see ConsumeDirective
+-- below), and init.lua's main loop sweeps only in response, not on its own timer.
 --
 -- Requirements (all three must be true):
---   1. RGMercs LootModuleType = 2 (LootNScoot module loaded — registers loot_module mailbox)
---   2. DoLoot = true in RGMercs loot settings (enables GiveTime to enter DoLooting())
---   3. A ProLoot-native loot module in RGMercs, OR LootNScoot running in directed mode
+--   1. RGMercs LootModuleType = ProLoot (modules/proloot.lua loaded — registers
+--      the loot_module mailbox and sends 'doloot' directives)
+--   2. DoLoot = true in RGMercs's ProLoot loot settings
+--   3. ProLoot launched with framework=rgmercs-directed (RGMercs does this
+--      automatically when its ProLoot module's DoLoot setting is enabled)
 --
--- Use this adapter with a forked RGMercs that has ProLoot built in natively.
--- For stock RGMercs, use the rgmercs adapter instead.
+-- Use this adapter with a forked RGMercs that has the native ProLoot module
+-- (modules/proloot.lua). For stock RGMercs, use the rgmercs adapter instead.
 
 local mq     = require('mq')
 local Actors = require('actors')
@@ -18,6 +22,12 @@ local Actors = require('actors')
 local Adapter = {}
 Adapter.name   = 'rgmercs-directed'
 Adapter._actor = nil
+Adapter._pendingDirective = false
+
+-- Marks this adapter as trigger-driven: init.lua's main loop suppresses its
+-- own autonomous LOOT_INTERVAL sweep and loots only when ConsumeDirective()
+-- reports a directive received from RGMercs's loot module.
+Adapter.directed = true
 
 function Adapter:Detect()
     return mq.TLO.Alias('/rgl')() ~= nil
@@ -32,10 +42,31 @@ function Adapter:PauseAndTrack()  end
 function Adapter:ResumeAndTrack() end
 function Adapter:IsPaused()       return false end
 
+-- RGMercs's loot_module sends a { who, directions='doloot' } message here
+-- (mailbox 'proloot') when it decides it is safe for us to sweep. We just
+-- latch a flag; init.lua's main loop consumes it via ConsumeDirective().
 function Adapter:_ensureActor()
     if not self._actor then
-        self._actor = Actors.register('proloot', function() end)
+        self._actor = Actors.register('proloot', function(message)
+            local mail = message()
+            if mail.who ~= mq.TLO.Me.CleanName() then return end
+            if mail.directions == 'doloot' then
+                self._pendingDirective = true
+            end
+        end)
     end
+end
+
+-- Returns true (once) if RGMercs has signaled it's our turn to loot, and
+-- clears the flag. Ensures the mailbox is registered even before the first
+-- BeginLoot/EndLoot call, so directives aren't missed while idle.
+function Adapter:ConsumeDirective()
+    self:_ensureActor()
+    if self._pendingDirective then
+        self._pendingDirective = false
+        return true
+    end
+    return false
 end
 
 -- Signal RGMercs's loot_module that looting is in progress. This causes
