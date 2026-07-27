@@ -14,9 +14,12 @@ local _fh          = nil
 local _dirCache    = nil
 local _serverCache = nil
 
-local function prolootDir()
+-- Log files live under MacroQuest's Logs directory (not the config directory) so they
+-- don't clutter Config/proloot alongside per-character ini/list files. Use
+-- MacroQuest.Path[logs] rather than hardcoding a path — it's user-configurable.
+local function prolootLogDir()
     if not _dirCache then
-        _dirCache = mq.configDir .. '/proloot'
+        _dirCache = mq.TLO.MacroQuest.Path('logs')() .. '/proloot'
         local ok, _, code = os.rename(_dirCache, _dirCache)
         if not ok and code ~= 13 then
             os.execute('mkdir "' .. _dirCache .. '"')
@@ -44,7 +47,7 @@ end
 local function ensureFile()
     if _fh then return end
     local path = string.format('%s/ConsoleLogs_%s_%s.log',
-        prolootDir(), serverTag(), mq.TLO.Me.CleanName())
+        prolootLogDir(), serverTag(), mq.TLO.Me.CleanName())
     _fh = io.open(path, 'a')
     if _fh then
         _fh:write(string.format('\n=== Session %s ===\n', os.date('%Y-%m-%d %H:%M:%S')))
