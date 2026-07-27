@@ -103,6 +103,11 @@ v0.10.6 Dev  —  2026-07-26
     RG Mercs (Directed) mode — that's controlled entirely by RG Mercs' own
     "Combat Looting" setting.
 
+  Other Changes:
+  • Debug log files (LogToFile) now write to MacroQuest's Logs\proloot folder
+    instead of Config\proloot, so they no longer clutter the per-character
+    settings folder alongside 18+ characters' ini/list files.
+
 v0.10.5 Beta  —  2026-07-26
 
   New Features:
