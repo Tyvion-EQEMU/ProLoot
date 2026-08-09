@@ -154,6 +154,21 @@ local function evaluateItem(item)
     matched, count = _lists.beasts:Has(name, id)
     if matched then return DECISION.KEEP, 'beast', nil, count end
 
+    -- Spell scrolls: dynamic NoDrop + class-usability gate rather than a named list.
+    -- NoDrop scrolls can only ever be used by the looting character, so class-usability
+    -- is mandatory there. Tradeable scrolls can optionally be hoovered up for other
+    -- classes (to hand off/sell) via the second toggle.
+    if item.EffectType() == 'Spell Scroll' then
+        if not _config:Get('LootSpells') then return DECISION.SKIP, 'spells-disabled' end
+        local noDrop  = item.NoDrop() == true
+        local classOK = Upgrade.ClassCanUse(item)
+        if classOK then return DECISION.KEEP, 'spell-usable' end
+        if not noDrop and _config:Get('LootOffClassSpells') then
+            return DECISION.KEEP, 'spell-offclass'
+        end
+        return DECISION.SKIP, noDrop and 'spell-nodrop-unusable' or 'spell-offclass-disabled'
+    end
+
     local weaponMode    = _config:Get('WeaponMode')
     local rangedMode    = _config:Get('RangedMode')
     local trashPrice    = _config:Get('TrashPrice')

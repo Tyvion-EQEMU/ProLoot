@@ -72,6 +72,8 @@ Config.Defaults = {
     AnnounceDone       = true,    -- send /g Done Looting after a sweep clears all corpses
     AutoEquipUpgrades  = true,    -- equip upgrade immediately; false = bag it for manual equip
     ExcludedSlots      = '',      -- comma-sep slot IDs excluded from upgrade eval (per-char)
+    LootSpells         = false,   -- pick up spell scrolls (per-character); NoDrop scrolls always require class-usability
+    LootOffClassSpells = false,   -- also pick up TRADEABLE scrolls your class can't use; no effect if LootSpells is off, or on NoDrop scrolls
 
     -- Vendor / Bank behaviour
     AutoConsolidateCoins = true,   -- consolidate CP/SP/GP→PP automatically after BankStuff deposit

@@ -183,8 +183,16 @@ mq.bind('/proloot', function(subcmd, ...)
         Config:SetAndSave('AnnounceChannel', newVal)
         channel:Broadcast({ type='set_announcechannel', value=newVal })
         printf('\agProLoot: Loot announce channel set to %s (all toons)', newVal:upper())
+    elseif subcmd == 'togglespells' then
+        local newVal = not Config:Get('LootSpells')
+        Config:SetAndSave('LootSpells', newVal)
+        printf('\agProLoot: Loot Spells %s', newVal and 'ON' or 'OFF')
+    elseif subcmd == 'toggleoffclassspells' then
+        local newVal = not Config:Get('LootOffClassSpells')
+        Config:SetAndSave('LootOffClassSpells', newVal)
+        printf('\agProLoot: Loot Off-Class Spells %s', newVal and 'ON' or 'OFF')
     else
-        printf('\ayProLoot commands: loot | bankstuff | sellstuff | restock | mini [on|off] | show | editor | eval | enable | disable | reload | set <setting> <value> | toggledone | toggleraid')
+        printf('\ayProLoot commands: loot | bankstuff | sellstuff | restock | mini [on|off] | show | editor | eval | enable | disable | reload | set <setting> <value> | toggledone | toggleraid | togglespells | toggleoffclassspells')
     end
 end)
 

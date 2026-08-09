@@ -867,6 +867,37 @@ function Panel.Render()
             if combatLootChanged then _config:SetAndSave('LootDuringCombat', newLootInCombat) end
             if isDirectedFramework then ImGui.EndDisabled() end
 
+            -- Loot Spells
+            ImGui.TableNextRow()
+            ImGui.TableNextColumn()
+            ImGui.Text('Loot Spells')
+            if ImGui.IsItemHovered() then
+                ImGui.BeginTooltip()
+                ImGui.PushTextWrapPos(280)
+                ImGui.TextWrapped('When on, ProLoot picks up spell scrolls. No Drop scrolls are only picked up if your class can use them. Tradeable scrolls your class can\'t use are skipped unless Loot Off-Class Spells is also on.')
+                ImGui.PopTextWrapPos()
+                ImGui.EndTooltip()
+            end
+            ImGui.TableNextColumn()
+            local lootSpells = _config:Get('LootSpells')
+            local newLootSpells, lootSpellsChanged = Widgets.Toggle('##lootspells', lootSpells)
+            if lootSpellsChanged then _config:SetAndSave('LootSpells', newLootSpells) end
+            ImGui.SameLine(0, 14)
+            ImGui.Text('Loot Off-Class Spells')
+            if ImGui.IsItemHovered() then
+                ImGui.BeginTooltip()
+                ImGui.PushTextWrapPos(280)
+                ImGui.TextWrapped('When on, tradeable (non-No Drop) spell scrolls are picked up even if your class can\'t use them, so you can sell or hand them off. No effect on No Drop scrolls or when Loot Spells is off.')
+                ImGui.PopTextWrapPos()
+                ImGui.EndTooltip()
+            end
+            ImGui.SameLine(0, 6)
+            if not lootSpells then ImGui.BeginDisabled() end
+            local lootOffClassSpells = _config:Get('LootOffClassSpells')
+            local newLootOffClassSpells, offClassChanged = Widgets.Toggle('##lootoffclassspells', lootOffClassSpells)
+            if offClassChanged then _config:SetAndSave('LootOffClassSpells', newLootOffClassSpells) end
+            if not lootSpells then ImGui.EndDisabled() end
+
             -- Slot Exclusions
             ImGui.TableNextRow()
             ImGui.TableNextColumn()
